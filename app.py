@@ -63,27 +63,71 @@ def radar():
 
         # Fetch GFS data from local files
         forecast = []
-        for i in range(0, 16 * 24, 24):  # Full range: f000 to f360
-            try:
-                local_file = f"/home/ubuntu/data/gfs/20250407/gfs.t12z.pgrb2.0p25.f{i:03d}"
-                logging.debug(f"Reading GFS f{i:03d} from {local_file}")
-                with open(local_file, 'rb') as f:
-                    logging.debug(f"Successfully opened file {local_file}")
-                data = xr.open_dataset(local_file, engine="cfgrib", backend_kwargs={"filter_by_keys": {"typeOfLevel": "surface", "stepType": "instant"}})
-                logging.debug(f"Loaded dataset for GFS f{i:03d}")
-                precip = float(data["prate"].mean().values)
-                logging.debug(f"GFS f{i:03d} precip: {precip}")
-                # For now, use a placeholder image name (we'll generate real images in the next step)
-                image_name = f"gfs.t12z.pgrb2.0p25.f{i:03d}.png"
+        source_dir = "/home/ubuntu/data/gfs/20250407"
+        radar_dir = os.path.join(app.root_path, 'static', 'radar')
+        os.makedirs(radar_dir, exist_ok=True)
+
+        # Check if GFS files exist
+        if not os.path.exists(source_dir) or not os.listdir(source_dir):
+            logging.warning("GFS files not found, returning mock data")
+            for i in range(0, 3 * 24, 24):  # Mock 3 time steps
+                image_name = f"mock_gfs_f{i:03d}.png"
+                image_path = os.path.join(radar_dir, image_name)
+                # Create a placeholder image (minimal example)
+                if not os.path.exists(image_path):
+                    import matplotlib.pyplot as plt
+                    plt.figure(figsize=(10, 8))
+                    plt.text(0.5, 0.5, f"Mock GFS f{i:03d}", fontsize=20, ha='center', va='center')
+                    plt.savefig(image_path, bbox_inches="tight", dpi=100)
+                    plt.close()
+                    logging.debug(f"Generated mock PNG: {image_name}")
+                timestamp = (datetime.now(UTC) + timedelta(hours=i)).isoformat()
                 forecast.append({
-                    "precip": [precip, 0.0],
-                    "time": (datetime.now(UTC) + timedelta(hours=i)).isoformat(),
-                    "timestamp": (datetime.now(UTC) + timedelta(hours=i)).isoformat(),
+                    "precip": [0.0, 0.0],
+                    "time": timestamp,
+                    "timestamp": timestamp,
                     "image": image_name
                 })
-            except Exception as e:
-                logging.error(f"Error processing GFS file f{i:03d}: {str(e)}")
-                continue
+        else:
+            for i in range(0, 16 * 24, 24):  # Full range: f000 to f360
+                try:
+                    local_file = f"/home/ubuntu/data/gfs/20250407/gfs.t12z.pgrb2.0p25.f{i:03d}"
+                    logging.debug(f"Reading GFS f{i:03d} from {local_file}")
+                    with open(local_file, 'rb') as f:
+                        logging.debug(f"Successfully opened file {local_file}")
+                    data = xr.open_dataset(local_file, engine="cfgrib", backend_kwargs={"filter_by_keys": {"typeOfLevel": "surface", "stepType": "instant"}})
+                    logging.debug(f"Loaded dataset for GFS f{i:03d}")
+                    precip = float(data["prate"].mean().values)
+                    logging.debug(f"GFS f{i:03d} precip: {precip}")
+
+                    # Generate PNG if it doesn't exist
+                    image_name = f"gfs.t12z.pgrb2.0p25.f{i:03d}.png"
+                    image_path = os.path.join(radar_dir, image_name)
+                    if not os.path.exists(image_path):
+                        import matplotlib.pyplot as plt
+                        import cartopy.crs as ccrs
+                        prate = data["prate"].isel(time=0)
+                        plt.figure(figsize=(10, 8))
+                        ax = plt.axes(projection=ccrs.PlateCarree())
+                        ax.set_extent([-125, -66, 25, 50], crs=ccrs.PlateCarree())
+                        prate.plot(ax=ax, cmap="Blues", transform=ccrs.PlateCarree())
+                        ax.coastlines()
+                        ax.gridlines(draw_labels=True)
+                        plt.savefig(image_path, bbox_inches="tight", dpi=100)
+                        plt.close()
+                        logging.debug(f"Generated PNG: {image_name}")
+
+                    # Add to forecast with timestamp
+                    timestamp = (datetime.now(UTC) + timedelta(hours=i)).isoformat()
+                    forecast.append({
+                        "precip": [precip, 0.0],
+                        "time": timestamp,
+                        "timestamp": timestamp,
+                        "image": image_name
+                    })
+                except Exception as e:
+                    logging.error(f"Error processing GFS file f{i:03d}: {str(e)}")
+                    continue
 
         logging.debug("Returning radar data")
         return jsonify({"forecast": forecast, "historical": historical})
