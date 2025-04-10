@@ -1,11 +1,12 @@
 import logging
 from logging.handlers import RotatingFileHandler
 import sys
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory, abort, render_template, request, redirect
 from datetime import datetime, timedelta
 import xarray as xr
 from pytz import UTC
 import json
+import os
 
 # Configure logging
 logger = logging.getLogger()
@@ -27,8 +28,15 @@ logger.addHandler(stream_handler)
 logging.debug("Starting Flask app...")
 
 app = Flask(__name__)
-app.config['SERVER_NAME'] = None
+app.config['SERVER_NAME'] = 'stormslide.net'
 app.config['PREFERRED_URL_SCHEME'] = 'https'
+
+# Middleware to enforce HTTPS with Cloudflare proxy
+@app.before_request
+def enforce_https():
+    if request.headers.get('X-Forwarded-Proto') == 'http':
+        url = request.url.replace('http://', 'https://', 1)
+        return redirect(url, code=301)
 
 logging.debug("Flask app initialized.")
 
@@ -40,26 +48,7 @@ logging.debug("Defining homepage route...")
 @app.route("/")
 def home():
     logging.debug("Accessing homepage.")
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>StormSlide Radar App</title>
-        <style>
-            body { font-family: Arial, sans-serif; text-align: center; background: #f0f0f0; }
-            h1 { color: #1a73e8; }
-            p { font-size: 1.2em; }
-            a { color: #1a73e8; text-decoration: none; }
-        </style>
-    </head>
-    <body>
-        <h1>StormSlide Radar App</h1>
-        <p>Live radar + 16-day forecasts, powered by AI.</p>
-        <p>Android app coming soon to Google Play!</p>
-        <p><a href="/radar">View Raw Radar Data (JSON)</a></p>
-    </body>
-    </html>
-    """
+    return render_template("index.html")
 logging.debug("Homepage route defined.")
 
 # Define the radar route
@@ -68,27 +57,33 @@ logging.debug("Defining radar route...")
 def radar():
     try:
         logging.debug("Accessing /radar endpoint.")
-        # Skip NEXRAD data fetching for now due to lack of recent data in S3 bucket
+        # Skip NEXRAD data fetching for now
         historical = []
         logging.debug("Skipping NEXRAD data fetching due to unavailable recent data in S3 bucket")
 
-        # Fetch GFS data (pre-fetched) from local files
+        # Fetch GFS data from local files
         forecast = []
         for i in range(0, 16 * 24, 24):  # Full range: f000 to f360
             try:
                 local_file = f"/home/ubuntu/data/gfs/20250407/gfs.t12z.pgrb2.0p25.f{i:03d}"
                 logging.debug(f"Reading GFS f{i:03d} from {local_file}")
-                # Test file access before loading
                 with open(local_file, 'rb') as f:
                     logging.debug(f"Successfully opened file {local_file}")
                 data = xr.open_dataset(local_file, engine="cfgrib", backend_kwargs={"filter_by_keys": {"typeOfLevel": "surface", "stepType": "instant"}})
                 logging.debug(f"Loaded dataset for GFS f{i:03d}")
                 precip = float(data["prate"].mean().values)
                 logging.debug(f"GFS f{i:03d} precip: {precip}")
-                forecast.append({"precip": [precip, 0.0], "time": (datetime.now(UTC) + timedelta(hours=i)).isoformat()})
+                # For now, use a placeholder image name (we'll generate real images in the next step)
+                image_name = f"gfs.t12z.pgrb2.0p25.f{i:03d}.png"
+                forecast.append({
+                    "precip": [precip, 0.0],
+                    "time": (datetime.now(UTC) + timedelta(hours=i)).isoformat(),
+                    "timestamp": (datetime.now(UTC) + timedelta(hours=i)).isoformat(),
+                    "image": image_name
+                })
             except Exception as e:
                 logging.error(f"Error processing GFS file f{i:03d}: {str(e)}")
-                continue  # Skip this file and continue with the next one
+                continue
 
         logging.debug("Returning radar data")
         return jsonify({"forecast": forecast, "historical": historical})
@@ -96,6 +91,17 @@ def radar():
         logging.error(f"Unexpected error in /radar endpoint: {str(e)}")
         return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 logging.debug("Radar route defined.")
+
+# Define the radar image route
+logging.debug("Defining radar image route...")
+@app.route('/radar/image/<filename>')
+def serve_radar_image(filename):
+    radar_dir = os.path.join(app.root_path, 'static', 'radar')
+    try:
+        return send_from_directory(radar_dir, filename)
+    except FileNotFoundError:
+        abort(404, description=f"Radar image {filename} not found")
+logging.debug("Radar image route defined.")
 
 # Log after defining all routes
 logging.debug("All routes defined.")
