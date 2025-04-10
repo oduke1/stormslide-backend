@@ -7,8 +7,8 @@ import xarray as xr
 from pytz import UTC
 import json
 import os
-import sys
-import sys
+
+# Debug logging for Python environment
 logging.debug(f"Python executable: {sys.executable}")
 logging.debug(f"sys.path: {sys.path}")
 try:
@@ -21,8 +21,7 @@ try:
     logging.debug(f"cartopy version: {cartopy.__version__}")
 except ImportError as e:
     logging.error(f"Failed to import cartopy: {str(e)}")
-logging.debug(f"Python executable: {sys.executable}")
-logging.debug(f"sys.path: {sys.path}")
+
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -108,10 +107,16 @@ def radar():
                 try:
                     local_file = f"/home/ubuntu/data/gfs/20250407/gfs.t12z.pgrb2.0p25.f{i:03d}"
                     logging.debug(f"Reading GFS f{i:03d} from {local_file}")
+                    if not os.path.exists(local_file):
+                        logging.debug(f"GFS file f{i:03d} does not exist, skipping")
+                        continue
                     with open(local_file, 'rb') as f:
                         logging.debug(f"Successfully opened file {local_file}")
                     data = xr.open_dataset(local_file, engine="cfgrib", backend_kwargs={"filter_by_keys": {"typeOfLevel": "surface", "stepType": "instant"}})
-                    logging.debug(f"Loaded dataset for GFS f{i:03d}")
+                    logging.debug(f"Loaded dataset for GFS f{i:03d}: {data}")
+                    logging.debug(f"prate variable: {data['prate']}")
+                    logging.debug(f"prate dimensions: {data['prate'].dims}")
+                    logging.debug(f"prate coordinates: {data['prate'].coords}")
                     precip = float(data["prate"].mean().values)
                     logging.debug(f"GFS f{i:03d} precip: {precip}")
 
@@ -121,7 +126,10 @@ def radar():
                     if not os.path.exists(image_path):
                         import matplotlib.pyplot as plt
                         import cartopy.crs as ccrs
-                        prate = data["prate"].isel(time=0)
+                        prate = data["prate"]
+                        # Check if 'time' dimension exists; if not, use the data as-is
+                        if 'time' in prate.dims:
+                            prate = prate.isel(time=0)
                         plt.figure(figsize=(10, 8))
                         ax = plt.axes(projection=ccrs.PlateCarree())
                         ax.set_extent([-125, -66, 25, 50], crs=ccrs.PlateCarree())
