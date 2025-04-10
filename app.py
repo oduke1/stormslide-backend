@@ -8,6 +8,19 @@ from pytz import UTC
 import json
 import os
 import sys
+import sys
+logging.debug(f"Python executable: {sys.executable}")
+logging.debug(f"sys.path: {sys.path}")
+try:
+    import matplotlib
+    logging.debug(f"matplotlib version: {matplotlib.__version__}")
+except ImportError as e:
+    logging.error(f"Failed to import matplotlib: {str(e)}")
+try:
+    import cartopy
+    logging.debug(f"cartopy version: {cartopy.__version__}")
+except ImportError as e:
+    logging.error(f"Failed to import cartopy: {str(e)}")
 logging.debug(f"Python executable: {sys.executable}")
 logging.debug(f"sys.path: {sys.path}")
 # Configure logging
