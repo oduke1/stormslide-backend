@@ -7,7 +7,9 @@ import xarray as xr
 from pytz import UTC
 import json
 import os
-
+import sys
+logging.debug(f"Python executable: {sys.executable}")
+logging.debug(f"sys.path: {sys.path}")
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
