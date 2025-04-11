@@ -1,10 +1,24 @@
 // Initialize the map
-var map = L.map('map').setView([39.8283, -98.5795], 4);
+var map = L.map('map').setView([37.5, -95.5], 4);
 
 // Add OpenStreetMap tiles
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
 }).addTo(map);
+
+// Force map to re-render on window resize
+window.addEventListener('resize', function() {
+    setTimeout(function() {
+        map.invalidateSize();
+    }, 100); // Small delay to ensure DOM is ready
+});
+
+// Ensure map renders on initial load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        map.invalidateSize();
+    }, 100);
+});
 
 // Check if L.timeDimension is available
 if (typeof L.timeDimension === 'undefined') {
@@ -31,11 +45,25 @@ if (typeof L.timeDimension === 'undefined') {
             console.log('Times:', times);
             console.log('Images:', images);
 
+            // Preload images to avoid loading delays
+            images.forEach(url => {
+                var img = new Image();
+                img.src = url;
+            });
+
             // Set available times for TimeDimension
-            map.timeDimension.setAvailableTimes(times, 'replace');
+            if (times.length > 0) {
+                map.timeDimension.setAvailableTimes(times, 'replace');
+            } else {
+                console.error('No times available for TimeDimension');
+                return;
+            }
+
+            // Define fixed bounds for the overlay
+            var bounds = [[25, -125], [50, -66]];
 
             // Create an ImageOverlay layer
-            var imageOverlay = L.imageOverlay(images[0] || '', [[25, -125], [50, -66]], { opacity: 0.8 });
+            var imageOverlay = L.imageOverlay(images[0] || '', bounds, { opacity: 0.8 });
             imageOverlay.addTo(map);
 
             // Listen for time changes and update the image overlay
@@ -44,17 +72,14 @@ if (typeof L.timeDimension === 'undefined') {
                 var idx = times.indexOf(time);
                 console.log('Time changed to:', time, 'idx:', idx);
                 if (idx >= 0) {
-                    // Remove and re-add the overlay to ensure consistent rendering
-                    imageOverlay.remove();
-                    imageOverlay = L.imageOverlay(images[idx], [[25, -125], [50, -66]], { opacity: 0.8 });
-                    imageOverlay.addTo(map);
+                    imageOverlay.setUrl(images[idx]);
                     console.log('Updated imageOverlay with URL:', images[idx]);
                 }
             });
 
             // Initialize the TimeDimension player
             var player = new L.TimeDimension.Player({
-                transitionTime: 500, // 0.5 second transition
+                transitionTime: 200, // Faster transition for smoother playback
                 loop: true,
                 startOver: true
             }, timeDimension);
@@ -69,7 +94,18 @@ if (typeof L.timeDimension === 'undefined') {
             }).addTo(map);
 
             // Set the initial time to the first timestamp
-            map.timeDimension.setCurrentTime(new Date(times[0]).getTime());
+            if (times[0]) {
+                map.timeDimension.setCurrentTime(new Date(times[0]).getTime());
+            }
+
+            // Force map to re-render after setting up layers
+            setTimeout(function() {
+                map.invalidateSize();
+            }, 500);
         })
-        .catch(error => console.error('Error fetching radar data:', error));
+        .catch(error => {
+            console.error('Error fetching radar data:', error);
+            // Fallback: Ensure map is still visible even if data fails
+            map.invalidateSize();
+        });
 }
