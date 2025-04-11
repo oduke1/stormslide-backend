@@ -16,16 +16,6 @@ if (typeof L.timeDimension === 'undefined') {
     });
     map.timeDimension = timeDimension;
 
-    // Create a TimeDimension layer for radar images
-    var radarLayer = L.timeDimension.layer.imageOverlay({
-        getUrl: function(time) {
-            var idx = times.indexOf(time);
-            console.log('Fetching image for time:', time, 'idx:', idx);
-            return idx >= 0 ? images[idx] : '';
-        },
-        bounds: [[25, -125], [50, -66]] // Same bounds as in your original code
-    });
-
     // Fetch radar data
     fetch('/radar')
         .then(response => {
@@ -44,12 +34,19 @@ if (typeof L.timeDimension === 'undefined') {
             // Set available times for TimeDimension
             map.timeDimension.setAvailableTimes(times, 'replace');
 
-            // Update the radar layer to fetch the correct image based on time
-            radarLayer._getUrl = function(time) {
-                var idx = times.indexOf(time);
-                console.log('Fetching image for time:', time, 'idx:', idx);
-                return idx >= 0 ? images[idx] : '';
-            };
+            // Create an ImageOverlay layer
+            var imageOverlay = L.imageOverlay('', [[25, -125], [50, -66]]);
+
+            // Wrap the ImageOverlay with L.timeDimension.layer
+            var radarLayer = L.timeDimension.layer(imageOverlay, {
+                updateTimeDimension: true,
+                setDefaultTime: true,
+                getUrl: function(time) {
+                    var idx = times.indexOf(time);
+                    console.log('Fetching image for time:', time, 'idx:', idx);
+                    return idx >= 0 ? images[idx] : '';
+                }
+            });
 
             // Add the radar layer to the map
             radarLayer.addTo(map);
