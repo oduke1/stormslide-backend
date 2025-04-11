@@ -27,23 +27,28 @@ if (typeof L.timeDimension === 'undefined') {
 
             // Extract times and images from the forecast data
             var times = data.forecast.map(f => new Date(f.timestamp).toISOString());
-            var images = data.forecast.map(f => f.image); // Fixed: Use the image path directly
+            var images = data.forecast.map(f => f.image);
             console.log('Times:', times);
             console.log('Images:', images);
 
             // Set available times for TimeDimension
             map.timeDimension.setAvailableTimes(times, 'replace');
 
-            // Create an ImageOverlay layer
-            var imageOverlay = L.imageOverlay('', [[25, -125], [50, -66]]);
+            // Create an ImageOverlay layer with the first image
+            var imageOverlay = L.imageOverlay(images[0] || '', [[25, -125], [50, -66]]);
 
             // Wrap the ImageOverlay with L.timeDimension.layer
             var radarLayer = L.timeDimension.layer(imageOverlay, {
                 updateTimeDimension: true,
                 setDefaultTime: true,
                 getUrl: function(time) {
-                    var idx = times.indexOf(time);
-                    console.log('Fetching image for time:', time, 'idx:', idx);
+                    // Log the time value for debugging
+                    console.log('Time received in getUrl:', time);
+                    // Convert time to ISO string for comparison
+                    var timeStr = new Date(time).toISOString();
+                    console.log('Converted time to ISO:', timeStr);
+                    var idx = times.indexOf(timeStr);
+                    console.log('Fetching image for time:', timeStr, 'idx:', idx);
                     return idx >= 0 ? images[idx] : '';
                 }
             });
@@ -66,6 +71,9 @@ if (typeof L.timeDimension === 'undefined') {
                 speedSlider: true,
                 autoPlay: false
             }).addTo(map);
+
+            // Set the initial time to the first timestamp
+            map.timeDimension.setCurrentTime(new Date(times[0]).getTime());
         })
         .catch(error => console.error('Error fetching radar data:', error));
 }
