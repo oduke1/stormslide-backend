@@ -25,6 +25,11 @@ try:
     logging.debug(f"cartopy version: {cartopy.__version__}")
 except ImportError as e:
     logging.error(f"Failed to import cartopy: {str(e)}")
+try:
+    import numpy
+    logging.debug(f"numpy version: {numpy.__version__}")
+except ImportError as e:
+    logging.error(f"Failed to import numpy: {str(e)}")
 
 # Configure Logging
 logger = logging.getLogger()
@@ -63,8 +68,12 @@ def radar():
 
         # Ensure the static/radar directory exists
         radar_dir = '/home/ubuntu/stormslide/static/radar/'
-        os.makedirs(radar_dir, exist_ok=True)
-        logger.debug(f"Ensuring radar directory exists: {radar_dir}")
+        try:
+            os.makedirs(radar_dir, exist_ok=True)
+            logger.debug(f"Ensuring radar directory exists: {radar_dir}")
+        except Exception as e:
+            logger.error(f"Failed to create radar directory {radar_dir}: {str(e)}")
+            return jsonify({'error': f"Failed to create radar directory: {str(e)}"}), 500
 
         forecast = []
         for i in range(0, 361, 24):  # f000 to f360, every 24 hours
@@ -79,44 +88,56 @@ def radar():
 
             # Load the GFS data
             logger.debug(f"Loading GFS file: {file_path}")
-            ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface'}})
+            try:
+                ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface'}})
+            except Exception as e:
+                logger.error(f"Failed to load GFS file {file_path}: {str(e)}")
+                continue
             
             # Extract precipitation rate
-            precip = ds['prate'].mean(dim=['latitude', 'longitude']).values
-            logger.debug(f"Calculated mean precipitation: {precip}")
+            try:
+                precip = ds['prate'].mean(dim=['latitude', 'longitude']).values
+                logger.debug(f"Calculated mean precipitation: {precip}")
+            except Exception as e:
+                logger.error(f"Failed to calculate precipitation for {file_path}: {str(e)}")
+                continue
 
             # Generate PNG using matplotlib and cartopy
             output_file = os.path.join(radar_dir, f"gfs.t12z.pgrb2.0p25.f{i:03d}.png")
             logger.debug(f"Generating PNG: {output_file}")
 
-            # Create a plot
-            fig = plt.figure(figsize=(12, 8), dpi=100, facecolor='none')  # Transparent figure background
-            ax = plt.axes(projection=ccrs.PlateCarree())
-            ax.set_extent([-125, -66, 25, 50], crs=ccrs.PlateCarree())  # Continental US
-            ax.add_feature(cfeature.COASTLINE)
-            ax.add_feature(cfeature.BORDERS)
-            ax.add_feature(cfeature.STATES)
+            try:
+                # Create a plot
+                fig = plt.figure(figsize=(12, 8), dpi=100, facecolor='none')  # Transparent figure background
+                ax = plt.axes(projection=ccrs.PlateCarree())
+                ax.set_extent([-125, -66, 25, 50], crs=ccrs.PlateCarree())  # Continental US
+                ax.add_feature(cfeature.COASTLINE)
+                ax.add_feature(cfeature.BORDERS)
+                ax.add_feature(cfeature.STATES)
 
-            # Set the map area background to white
-            ax.set_facecolor('white')
+                # Set the map area background to white
+                ax.set_facecolor('white')
 
-            # Plot precipitation (convert prate to mm/h)
-            lats = ds['latitude'].values
-            lons = ds['longitude'].values
-            precip_data = ds['prate'].values * 3600  # Convert kg/m^2/s to mm/h
-            levels = np.linspace(0, np.max(precip_data), 20)
-            cf = ax.contourf(lons, lats, precip_data, levels=levels, cmap='Blues', transform=ccrs.PlateCarree())
-            
-            # Add colorbar
-            plt.colorbar(cf, ax=ax, label='Precipitation Rate (mm/h)')
-            
-            # Add title
-            plt.title(f"GFS Precipitation Forecast: {forecast_time.strftime('%Y-%m-%d %H:%M UTC')}")
-            
-            # Save the plot with transparent background outside the map
-            plt.savefig(output_file, bbox_inches='tight', transparent=True)
-            plt.close(fig)
-            logger.debug(f"PNG generated: {output_file}")
+                # Plot precipitation (convert prate to mm/h)
+                lats = ds['latitude'].values
+                lons = ds['longitude'].values
+                precip_data = ds['prate'].values * 3600  # Convert kg/m^2/s to mm/h
+                levels = np.linspace(0, np.max(precip_data), 20)
+                cf = ax.contourf(lons, lats, precip_data, levels=levels, cmap='Blues', transform=ccrs.PlateCarree())
+                
+                # Add colorbar
+                plt.colorbar(cf, ax=ax, label='Precipitation Rate (mm/h)')
+                
+                # Add title
+                plt.title(f"GFS Precipitation Forecast: {forecast_time.strftime('%Y-%m-%d %H:%M UTC')}")
+                
+                # Save the plot with transparent background outside the map
+                plt.savefig(output_file, bbox_inches='tight', transparent=True)
+                plt.close(fig)
+                logger.debug(f"PNG generated: {output_file}")
+            except Exception as e:
+                logger.error(f"Failed to generate PNG {output_file}: {str(e)}")
+                continue
 
             # Ensure the file was created
             if not os.path.exists(output_file):
@@ -124,8 +145,12 @@ def radar():
                 continue
 
             # Ensure file permissions
-            os.chmod(output_file, 0o644)
-            logger.debug(f"Set permissions for PNG: {output_file}")
+            try:
+                os.chmod(output_file, 0o644)
+                logger.debug(f"Set permissions for PNG: {output_file}")
+            except Exception as e:
+                logger.error(f"Failed to set permissions for PNG {output_file}: {str(e)}")
+                continue
 
             forecast.append({
                 'image': f"/radar/image/gfs.t12z.pgrb2.0p25.f{i:03d}.png",
@@ -133,6 +158,10 @@ def radar():
                 'time': forecast_time.isoformat(),
                 'timestamp': forecast_time.isoformat()
             })
+
+        if not forecast:
+            logger.error("No forecast data generated")
+            return jsonify({'error': 'No forecast data generated'}), 500
 
         logger.debug(f"Returning forecast with {len(forecast)} entries")
         return jsonify({'forecast': forecast, 'historical': []})
