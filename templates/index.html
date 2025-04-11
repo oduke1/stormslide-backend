@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link rel="stylesheet" href="https://unpkg.com/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.control.min.css" />
+    <style>
+        #map {
+            width: 1200px;  /* Match the PNG width */
+            height: 800px;  /* Match the PNG height */
+            margin: 0 auto; /* Center the map */
+        }
+    </style>
 </head>
 <body>
     <div id="map"></div>
