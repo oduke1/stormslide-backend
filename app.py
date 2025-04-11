@@ -107,32 +107,31 @@ def radar():
             logger.debug(f"Generating PNG: {output_file}")
 
             try:
-                # Create a plot
-                fig = plt.figure(figsize=(12, 8), dpi=100, facecolor='none')  # Transparent figure background
-                ax = plt.axes(projection=ccrs.PlateCarree())
+                # Create a plot with fully transparent background
+                fig = plt.figure(figsize=(12, 8), dpi=100, facecolor='none', edgecolor='none')
+                ax = plt.axes(projection=ccrs.PlateCarree(), facecolor='none')
                 ax.set_extent([-125, -66, 25, 50], crs=ccrs.PlateCarree())  # Continental US
-                ax.add_feature(cfeature.COASTLINE)
-                ax.add_feature(cfeature.BORDERS)
-                ax.add_feature(cfeature.STATES)
+                ax.add_feature(cfeature.COASTLINE, edgecolor='black', linewidth=0.5)
+                ax.add_feature(cfeature.BORDERS, edgecolor='black', linewidth=0.5)
+                ax.add_feature(cfeature.STATES, edgecolor='black', linewidth=0.5)
 
-                # Set the map area background to white
-                ax.set_facecolor('white')
+                # Ensure axes background is transparent
+                ax.set_facecolor('none')
+                fig.patch.set_alpha(0.0)
+                ax.patch.set_alpha(0.0)
 
                 # Plot precipitation (convert prate to mm/h)
                 lats = ds['latitude'].values
                 lons = ds['longitude'].values
                 precip_data = ds['prate'].values * 3600  # Convert kg/m^2/s to mm/h
-                levels = np.linspace(0, np.max(precip_data), 20)
-                cf = ax.contourf(lons, lats, precip_data, levels=levels, cmap='Blues', transform=ccrs.PlateCarree())
-                
-                # Add colorbar
-                plt.colorbar(cf, ax=ax, label='Precipitation Rate (mm/h)')
-                
-                # Add title
-                plt.title(f"GFS Precipitation Forecast: {forecast_time.strftime('%Y-%m-%d %H:%M UTC')}")
-                
-                # Save the plot with transparent background outside the map
-                plt.savefig(output_file, bbox_inches='tight', transparent=True)
+                levels = np.linspace(0, max(np.max(precip_data), 0.1), 20)  # Avoid zero max
+                cf = ax.contourf(lons, lats, precip_data, levels=levels, cmap='Blues', transform=ccrs.PlateCarree(), alpha=0.8)
+
+                # Add title (compact, at the top)
+                plt.title(f"GFS Forecast: {forecast_time.strftime('%Y-%m-%d %H:%M UTC')}", fontsize=10, pad=5)
+
+                # Save with tight layout and transparent background
+                plt.savefig(output_file, bbox_inches='tight', pad_inches=0.05, transparent=True)
                 plt.close(fig)
                 logger.debug(f"PNG generated: {output_file}")
             except Exception as e:
