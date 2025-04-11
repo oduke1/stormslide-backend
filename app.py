@@ -1,14 +1,18 @@
 import logging
 from logging.handlers import RotatingFileHandler
 import sys
-from flask import Flask, jsonify, send_from_directory, abort, render_template, request, redirect
+from flask import Flask, jsonify, send_from_directory, abort, render_template
 from datetime import datetime, timedelta
 import xarray as xr
-from pytz import UTC
+import pytz
 import json
 import os
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import numpy as np
 
-# Debug logging for Python environment
+# Debug Logging for Python environment
 logging.debug(f"Python executable: {sys.executable}")
 logging.debug(f"sys.path: {sys.path}")
 try:
@@ -22,160 +26,129 @@ try:
 except ImportError as e:
     logging.error(f"Failed to import cartopy: {str(e)}")
 
-# Configure logging
+# Configure Logging
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-# File handler for /var/log/flask_app.log
-handler = RotatingFileHandler('/var/log/flask_app.log', maxBytes=10000000, backupCount=5)
+# File handler - log to /var/log/flask_app.log
+handler = RotatingFileHandler('/var/log/flask_app.log', maxBytes=10000000, backupCount=1)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-handler.flush = lambda: handler.stream.flush()
 
 # Add StreamHandler for debugging to stderr
 stream_handler = logging.StreamHandler(sys.stderr)
 stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 
-# Log startup
-logging.debug("Starting Flask app...")
-
 app = Flask(__name__)
-app.config['SERVER_NAME'] = 'stormslide.net'
-app.config['PREFERRED_URL_SCHEME'] = 'https'
 
-# Middleware to enforce HTTPS with Cloudflare proxy
-@app.before_request
-def enforce_https():
-    if request.headers.get('X-Forwarded-Proto') == 'http':
-        url = request.url.replace('http://', 'https://', 1)
-        return redirect(url, code=301)
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-logging.debug("Flask app initialized.")
-
-# Log before defining routes
-logging.debug("About to define routes...")
-
-# Define the homepage route
-logging.debug("Defining homepage route...")
-@app.route("/")
-def home():
-    logging.debug("Accessing homepage.")
-    return render_template("index.html")
-logging.debug("Homepage route defined.")
-
-# Define the radar route
-logging.debug("Defining radar route...")
 @app.route('/radar')
 def radar():
+    logger.debug("Received request for /radar")
     try:
-        logging.debug("Accessing /radar endpoint.")
-        # Skip NEXRAD data fetching for now
-        historical = []
-        logging.debug("Skipping NEXRAD data fetching due to unavailable recent data in S3 bucket")
+        # Define base time for the GFS data
+        base_time = datetime(2025, 4, 7, 12, tzinfo=pytz.UTC)
+        gfs_dir = '/home/ubuntu/data/gfs/20250407/'
+        logger.debug(f"Looking for GFS data in: {gfs_dir}")
 
-        # Fetch GFS data from local files
-        forecast = []
-        source_dir = "/home/ubuntu/data/gfs/20250407"
-        radar_dir = os.path.join(app.root_path, 'static', 'radar')
+        # Check if the GFS directory exists
+        if not os.path.exists(gfs_dir):
+            logger.error(f"GFS directory not found: {gfs_dir}")
+            return jsonify({'error': 'GFS data directory not found'}), 500
+
+        # Ensure the static/radar directory exists
+        radar_dir = '/home/ubuntu/stormslide/static/radar/'
         os.makedirs(radar_dir, exist_ok=True)
+        logger.debug(f"Ensuring radar directory exists: {radar_dir}")
 
-        # Define the GFS run base time
-        base_time = datetime(2025, 4, 7, 12, 0, 0, tzinfo=UTC)
+        forecast = []
+        for i in range(0, 361, 24):  # f000 to f360, every 24 hours
+            logger.debug(f"Processing forecast hour f{i:03d}")
+            forecast_time = base_time + timedelta(hours=i)
+            file_path = os.path.join(gfs_dir, f"gfs.t12z.pgrb2.0p25.f{i:03d}")
+            
+            # Check if the GFS file exists
+            if not os.path.exists(file_path):
+                logger.error(f"GFS file not found: {file_path}")
+                continue
 
-        # Check if GFS files exist
-        if not os.path.exists(source_dir) or not os.listdir(source_dir):
-            logging.warning("GFS files not found, returning mock data")
-            for i in range(0, 3 * 24, 24):  # Mock 3 time steps
-                image_name = f"mock_gfs_f{i:03d}.png"
-                image_path = os.path.join(radar_dir, image_name)
-                # Create a placeholder image (minimal example)
-                if not os.path.exists(image_path):
-                    import matplotlib.pyplot as plt
-                    plt.figure(figsize=(10, 8))
-                    plt.text(0.5, 0.5, f"Mock GFS f{i:03d}", fontsize=20, ha='center', va='center')
-                    plt.savefig(image_path, bbox_inches="tight", dpi=100)
-                    plt.close()
-                    logging.debug(f"Generated mock PNG: {image_name}")
-                timestamp = (base_time + timedelta(hours=i)).isoformat()
-                forecast.append({
-                    "precip": [0.0, 0.0],
-                    "time": timestamp,
-                    "timestamp": timestamp,
-                    "image": f"/radar/image/{image_name}"
-                })
-        else:
-            for i in range(0, 16 * 24, 24):  # Full range: f000 to f360
-                try:
-                    local_file = f"/home/ubuntu/data/gfs/20250407/gfs.t12z.pgrb2.0p25.f{i:03d}"
-                    logging.debug(f"Reading GFS f{i:03d} from {local_file}")
-                    if not os.path.exists(local_file):
-                        logging.debug(f"GFS file f{i:03d} does not exist, skipping")
-                        continue
-                    with open(local_file, 'rb') as f:
-                        logging.debug(f"Successfully opened file {local_file}")
-                    data = xr.open_dataset(local_file, engine="cfgrib", backend_kwargs={"filter_by_keys": {"typeOfLevel": "surface", "stepType": "instant"}})
-                    logging.debug(f"Loaded dataset for GFS f{i:03d}: {data}")
-                    logging.debug(f"prate variable: {data['prate']}")
-                    logging.debug(f"prate dimensions: {data['prate'].dims}")
-                    logging.debug(f"prate coordinates: {data['prate'].coords}")
-                    precip = float(data["prate"].mean().values)
-                    logging.debug(f"GFS f{i:03d} precip: {precip}")
+            # Load the GFS data
+            logger.debug(f"Loading GFS file: {file_path}")
+            ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface'}})
+            
+            # Extract precipitation rate
+            precip = ds['prate'].mean(dim=['latitude', 'longitude']).values
+            logger.debug(f"Calculated mean precipitation: {precip}")
 
-                    # Generate PNG if it doesn't exist
-                    image_name = f"gfs.t12z.pgrb2.0p25.f{i:03d}.png"
-                    image_path = os.path.join(radar_dir, image_name)
-                    if not os.path.exists(image_path):
-                        import matplotlib.pyplot as plt
-                        import cartopy.crs as ccrs
-                        prate = data["prate"]
-                        # Check if 'time' dimension exists; if not, use the data as-is
-                        if 'time' in prate.dims:
-                            prate = prate.isel(time=0)
-                        plt.figure(figsize=(10, 8))
-                        ax = plt.axes(projection=ccrs.PlateCarree())
-                        ax.set_extent([-125, -66, 25, 50], crs=ccrs.PlateCarree())
-                        prate.plot(ax=ax, cmap="Blues", transform=ccrs.PlateCarree())
-                        ax.coastlines()
-                        ax.gridlines(draw_labels=True)
-                        plt.savefig(image_path, bbox_inches="tight", dpi=100)
-                        plt.close()
-                        logging.debug(f"Generated PNG: {image_name}")
+            # Generate PNG using matplotlib and cartopy
+            output_file = os.path.join(radar_dir, f"gfs.t12z.pgrb2.0p25.f{i:03d}.png")
+            logger.debug(f"Generating PNG: {output_file}")
 
-                    # Add to forecast with timestamp
-                    timestamp = (base_time + timedelta(hours=i)).isoformat()
-                    forecast.append({
-                        "precip": [precip, 0.0],
-                        "time": timestamp,
-                        "timestamp": timestamp,
-                        "image": f"/radar/image/{image_name}"
-                    })
-                except Exception as e:
-                    logging.error(f"Error processing GFS file f{i:03d}: {str(e)}")
-                    continue
+            # Create a plot
+            fig = plt.figure(figsize=(12, 8), dpi=100, facecolor='none')  # Transparent figure background
+            ax = plt.axes(projection=ccrs.PlateCarree())
+            ax.set_extent([-125, -66, 25, 50], crs=ccrs.PlateCarree())  # Continental US
+            ax.add_feature(cfeature.COASTLINE)
+            ax.add_feature(cfeature.BORDERS)
+            ax.add_feature(cfeature.STATES)
 
-        logging.debug("Returning radar data")
-        return jsonify({"forecast": forecast, "historical": historical})
+            # Set the map area background to white
+            ax.set_facecolor('white')
+
+            # Plot precipitation (convert prate to mm/h)
+            lats = ds['latitude'].values
+            lons = ds['longitude'].values
+            precip_data = ds['prate'].values * 3600  # Convert kg/m^2/s to mm/h
+            levels = np.linspace(0, np.max(precip_data), 20)
+            cf = ax.contourf(lons, lats, precip_data, levels=levels, cmap='Blues', transform=ccrs.PlateCarree())
+            
+            # Add colorbar
+            plt.colorbar(cf, ax=ax, label='Precipitation Rate (mm/h)')
+            
+            # Add title
+            plt.title(f"GFS Precipitation Forecast: {forecast_time.strftime('%Y-%m-%d %H:%M UTC')}")
+            
+            # Save the plot with transparent background outside the map
+            plt.savefig(output_file, bbox_inches='tight', transparent=True)
+            plt.close(fig)
+            logger.debug(f"PNG generated: {output_file}")
+
+            # Ensure the file was created
+            if not os.path.exists(output_file):
+                logger.error(f"Failed to create PNG: {output_file}")
+                continue
+
+            # Ensure file permissions
+            os.chmod(output_file, 0o644)
+            logger.debug(f"Set permissions for PNG: {output_file}")
+
+            forecast.append({
+                'image': f"/radar/image/gfs.t12z.pgrb2.0p25.f{i:03d}.png",
+                'precip': [float(precip), 0.0],
+                'time': forecast_time.isoformat(),
+                'timestamp': forecast_time.isoformat()
+            })
+
+        logger.debug(f"Returning forecast with {len(forecast)} entries")
+        return jsonify({'forecast': forecast, 'historical': []})
     except Exception as e:
-        logging.error(f"Unexpected error in /radar endpoint: {str(e)}")
-        return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
-logging.debug("Radar route defined.")
+        logger.error(f"Error in /radar: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
-# Define the radar image route
-logging.debug("Defining radar image route...")
 @app.route('/radar/image/<filename>')
 def serve_radar_image(filename):
-    radar_dir = os.path.join(app.root_path, 'static', 'radar')
+    radar_dir = '/home/ubuntu/stormslide/static/radar/'
+    logger.debug(f"Serving radar image: {filename}")
     try:
         return send_from_directory(radar_dir, filename)
-    except FileNotFoundError:
-        abort(404, description=f"Radar image {filename} not found")
-logging.debug("Radar image route defined.")
+    except Exception as e:
+        logger.error(f"Error serving radar image {filename}: {str(e)}")
+        abort(404)
 
-# Log after defining all routes
-logging.debug("All routes defined.")
-
-if __name__ == "__main__":
-    logging.debug("Running Flask app on port 5000...")
-    app.run(host="0.0.0.0", port=5000, threaded=True)
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
