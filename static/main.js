@@ -85,13 +85,20 @@ if (typeof L.timeDimension === 'undefined') {
             }, timeDimension);
 
             // Add the TimeDimension control (slider)
-            L.control.timeDimension({
+            var timeControl = L.control.timeDimension({
                 position: 'bottomleft',
                 player: player,
                 timeDimension: timeDimension,
                 speedSlider: true,
                 autoPlay: false
-            }).addTo(map);
+            });
+            timeControl.addTo(map);
+
+            // Force re-render of the control after a delay
+            setTimeout(function() {
+                timeControl._update(); // Force update of the control
+                map.invalidateSize(); // Re-render the map
+            }, 1000);
 
             // Set the initial time to the first timestamp
             if (times[0]) {
@@ -102,6 +109,11 @@ if (typeof L.timeDimension === 'undefined') {
             setTimeout(function() {
                 map.invalidateSize();
             }, 500);
+
+            // Explicitly start the player after a delay
+            setTimeout(function() {
+                player.start();
+            }, 1500);
         })
         .catch(error => {
             console.error('Error fetching radar data:', error);
