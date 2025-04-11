@@ -120,6 +120,12 @@ def radar():
                 fig.patch.set_alpha(0.0)
                 ax.patch.set_alpha(0.0)
 
+                # Remove axis spines (borders) to avoid any visible frame
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                ax.spines['bottom'].set_visible(False)
+                ax.spines['left'].set_visible(False)
+
                 # Plot precipitation (convert prate to mm/h)
                 lats = ds['latitude'].values
                 lons = ds['longitude'].values
@@ -128,10 +134,10 @@ def radar():
                 cf = ax.contourf(lons, lats, precip_data, levels=levels, cmap='Blues', transform=ccrs.PlateCarree(), alpha=0.8)
 
                 # Add title (compact, at the top)
-                plt.title(f"GFS Forecast: {forecast_time.strftime('%Y-%m-%d %H:%M UTC')}", fontsize=10, pad=5)
+                plt.title(f"GFS Forecast: {forecast_time.strftime('%Y-%m-%d %H:%M UTC')}", fontsize=10, pad=3)
 
-                # Save with tight layout and transparent background
-                plt.savefig(output_file, bbox_inches='tight', pad_inches=0.05, transparent=True)
+                # Save with tight layout, minimal padding, and transparent background
+                plt.savefig(output_file, bbox_inches='tight', pad_inches=0.0, transparent=True)
                 plt.close(fig)
                 logger.debug(f"PNG generated: {output_file}")
             except Exception as e:
