@@ -108,7 +108,7 @@ def radar():
 
             try:
                 # Create a plot with fully transparent background
-                fig = plt.figure(figsize=(12, 8), dpi=100, facecolor='none', edgecolor='none')
+                fig = plt.figure(figsize=(12, 8), dpi=80, facecolor='none', edgecolor='none')
                 ax = plt.axes(projection=ccrs.PlateCarree(), facecolor='none')
                 ax.set_extent([-125, -66, 25, 50], crs=ccrs.PlateCarree())  # Continental US
                 ax.add_feature(cfeature.COASTLINE, edgecolor='black', linewidth=0.5)
@@ -126,15 +126,18 @@ def radar():
                 ax.spines['bottom'].set_visible(False)
                 ax.spines['left'].set_visible(False)
 
+                # Remove axis ticks and labels
+                ax.set_xticks([])
+                ax.set_yticks([])
+                ax.set_xticklabels([])
+                ax.set_yticklabels([])
+
                 # Plot precipitation (convert prate to mm/h)
                 lats = ds['latitude'].values
                 lons = ds['longitude'].values
                 precip_data = ds['prate'].values * 3600  # Convert kg/m^2/s to mm/h
                 levels = np.linspace(0, max(np.max(precip_data), 0.1), 20)  # Avoid zero max
                 cf = ax.contourf(lons, lats, precip_data, levels=levels, cmap='Blues', transform=ccrs.PlateCarree(), alpha=0.8)
-
-                # Add title (compact, at the top)
-                plt.title(f"GFS Forecast: {forecast_time.strftime('%Y-%m-%d %H:%M UTC')}", fontsize=10, pad=3)
 
                 # Save with tight layout, minimal padding, and transparent background
                 plt.savefig(output_file, bbox_inches='tight', pad_inches=0.0, transparent=True)
@@ -163,6 +166,7 @@ def radar():
                 'time': forecast_time.isoformat(),
                 'timestamp': forecast_time.isoformat()
             })
+            logger.debug(f"Added forecast entry: timestamp={forecast_time.isoformat()}")
 
         if not forecast:
             logger.error("No forecast data generated")
