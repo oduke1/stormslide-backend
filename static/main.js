@@ -67,10 +67,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
-                // Define bounds dynamically based on the map's current view
-                var bounds = map.getBounds();
-                bounds = [[bounds.getSouth(), bounds.getWest()], [bounds.getNorth(), bounds.getEast()]];
-                console.log('Dynamic bounds:', bounds);
+                // Define fixed bounds matching the set_extent in app.py
+                var bounds = [[25, -125], [50, -66]]; // [south, west], [north, east]
 
                 // Create an ImageOverlay layer
                 var imageOverlay = L.imageOverlay(images[0] || '', bounds, { opacity: 1.0 });
