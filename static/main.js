@@ -35,7 +35,7 @@ if (typeof L.timeDimension === 'undefined') {
             map.timeDimension.setAvailableTimes(times, 'replace');
 
             // Create an ImageOverlay layer
-            var imageOverlay = L.imageOverlay(images[0] || '', [[25, -125], [50, -66]]);
+            var imageOverlay = L.imageOverlay(images[0] || '', [[25, -125], [50, -66]], { opacity: 0.8 });
             imageOverlay.addTo(map);
 
             // Listen for time changes and update the image overlay
@@ -44,13 +44,17 @@ if (typeof L.timeDimension === 'undefined') {
                 var idx = times.indexOf(time);
                 console.log('Time changed to:', time, 'idx:', idx);
                 if (idx >= 0) {
-                    imageOverlay.setUrl(images[idx]);
+                    // Remove and re-add the overlay to ensure consistent rendering
+                    imageOverlay.remove();
+                    imageOverlay = L.imageOverlay(images[idx], [[25, -125], [50, -66]], { opacity: 0.8 });
+                    imageOverlay.addTo(map);
+                    console.log('Updated imageOverlay with URL:', images[idx]);
                 }
             });
 
             // Initialize the TimeDimension player
             var player = new L.TimeDimension.Player({
-                transitionTime: 1000, // 1 second transition
+                transitionTime: 500, // 0.5 second transition
                 loop: true,
                 startOver: true
             }, timeDimension);
