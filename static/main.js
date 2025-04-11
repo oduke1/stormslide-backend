@@ -1,5 +1,5 @@
 // Initialize the map
-var map = L.map('map').setView([37.5, -95.5], 4);
+var map = L.map('map').setView([37.5, -95.5], 4); // Center of the continental US
 
 // Add OpenStreetMap tiles
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -67,8 +67,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
-                // Define fixed bounds for the overlay
-                var bounds = [[25, -125], [50, -66]];
+                // Define bounds dynamically based on the map's current view
+                var bounds = map.getBounds();
+                bounds = [[bounds.getSouth(), bounds.getWest()], [bounds.getNorth(), bounds.getEast()]];
+                console.log('Dynamic bounds:', bounds);
 
                 // Create an ImageOverlay layer
                 var imageOverlay = L.imageOverlay(images[0] || '', bounds, { opacity: 1.0 });
