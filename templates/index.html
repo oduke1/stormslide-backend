@@ -9,9 +9,16 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.control.min.css" />
     <style>
         #map {
-            width: 1200px;  /* Match the PNG width */
-            height: 800px;  /* Match the PNG height */
+            width: 100%;
+            max-width: 1200px; /* Match PNG width */
+            height: 800px; /* Match PNG height */
             margin: 0 auto; /* Center the map */
+        }
+        /* Remove border and background from image overlay */
+        .leaflet-image-layer {
+            border: none !important;
+            background: none !important;
+            box-shadow: none !important;
         }
     </style>
 </head>
