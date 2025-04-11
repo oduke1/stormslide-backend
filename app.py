@@ -108,7 +108,7 @@ def radar():
 
             try:
                 # Create a plot with fully transparent background
-                fig = plt.figure(figsize=(12, 8), dpi=80, facecolor='none', edgecolor='none')
+                fig = plt.figure(figsize=(15, 10), dpi=80, facecolor='none', edgecolor='none')
                 ax = plt.axes(projection=ccrs.PlateCarree(), facecolor='none')
                 ax.set_extent([-125, -66, 25, 50], crs=ccrs.PlateCarree())  # Continental US
                 ax.add_feature(cfeature.COASTLINE, edgecolor='black', linewidth=0.5)
