@@ -39,9 +39,18 @@ if (typeof L.timeDimension === 'undefined') {
         .then(data => {
             console.log('Radar data:', data);
 
-            // Extract times and images from the forecast data
-            var times = data.forecast.map(f => new Date(f.timestamp).toISOString());
-            var images = data.forecast.map(f => f.image);
+            // Extract times and images from the forecast data with validation
+            var times = [];
+            var images = [];
+            data.forecast.forEach(f => {
+                const date = new Date(f.timestamp);
+                if (!isNaN(date.getTime())) { // Check if the date is valid
+                    times.push(date.toISOString());
+                    images.push(f.image);
+                } else {
+                    console.warn('Invalid timestamp in forecast:', f.timestamp);
+                }
+            });
             console.log('Times:', times);
             console.log('Images:', images);
 
@@ -55,7 +64,7 @@ if (typeof L.timeDimension === 'undefined') {
             if (times.length > 0) {
                 map.timeDimension.setAvailableTimes(times, 'replace');
             } else {
-                console.error('No times available for TimeDimension');
+                console.error('No valid times available for TimeDimension');
                 return;
             }
 
@@ -68,12 +77,16 @@ if (typeof L.timeDimension === 'undefined') {
 
             // Listen for time changes and update the image overlay
             map.timeDimension.on('timeload', function(data) {
-                var time = new Date(data.time).toISOString();
-                var idx = times.indexOf(time);
-                console.log('Time changed to:', time, 'idx:', idx);
-                if (idx >= 0) {
-                    imageOverlay.setUrl(images[idx]);
-                    console.log('Updated imageOverlay with URL:', images[idx]);
+                try {
+                    var time = new Date(data.time).toISOString();
+                    var idx = times.indexOf(time);
+                    console.log('Time changed to:', time, 'idx:', idx);
+                    if (idx >= 0) {
+                        imageOverlay.setUrl(images[idx]);
+                        console.log('Updated imageOverlay with URL:', images[idx]);
+                    }
+                } catch (e) {
+                    console.error('Error in timeload event:', e);
                 }
             });
 
@@ -98,11 +111,17 @@ if (typeof L.timeDimension === 'undefined') {
             setTimeout(function() {
                 timeControl._update(); // Force update of the control
                 map.invalidateSize(); // Re-render the map
+                // Hide the loading spinner
+                document.getElementById('loading').style.display = 'none';
             }, 1000);
 
             // Set the initial time to the first timestamp
             if (times[0]) {
-                map.timeDimension.setCurrentTime(new Date(times[0]).getTime());
+                try {
+                    map.timeDimension.setCurrentTime(new Date(times[0]).getTime());
+                } catch (e) {
+                    console.error('Error setting initial time:', e);
+                }
             }
 
             // Force map to re-render after setting up layers
@@ -112,7 +131,11 @@ if (typeof L.timeDimension === 'undefined') {
 
             // Explicitly start the player after a delay
             setTimeout(function() {
-                player.start();
+                try {
+                    player.start();
+                } catch (e) {
+                    console.error('Error starting player:', e);
+                }
             }, 1500);
         })
         .catch(error => {
