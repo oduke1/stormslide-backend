@@ -34,27 +34,19 @@ if (typeof L.timeDimension === 'undefined') {
             // Set available times for TimeDimension
             map.timeDimension.setAvailableTimes(times, 'replace');
 
-            // Create an ImageOverlay layer with the first image
+            // Create an ImageOverlay layer
             var imageOverlay = L.imageOverlay(images[0] || '', [[25, -125], [50, -66]]);
+            imageOverlay.addTo(map);
 
-            // Wrap the ImageOverlay with L.timeDimension.layer
-            var radarLayer = L.timeDimension.layer(imageOverlay, {
-                updateTimeDimension: true,
-                setDefaultTime: true,
-                getUrl: function(time) {
-                    // Log the time value for debugging
-                    console.log('Time received in getUrl:', time);
-                    // Convert time to ISO string for comparison
-                    var timeStr = new Date(time).toISOString();
-                    console.log('Converted time to ISO:', timeStr);
-                    var idx = times.indexOf(timeStr);
-                    console.log('Fetching image for time:', timeStr, 'idx:', idx);
-                    return idx >= 0 ? images[idx] : '';
+            // Listen for time changes and update the image overlay
+            map.timeDimension.on('timeload', function(data) {
+                var time = new Date(data.time).toISOString();
+                var idx = times.indexOf(time);
+                console.log('Time changed to:', time, 'idx:', idx);
+                if (idx >= 0) {
+                    imageOverlay.setUrl(images[idx]);
                 }
             });
-
-            // Add the radar layer to the map
-            radarLayer.addTo(map);
 
             // Initialize the TimeDimension player
             var player = new L.TimeDimension.Player({
