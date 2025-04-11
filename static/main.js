@@ -27,7 +27,7 @@ if (typeof L.timeDimension === 'undefined') {
 
             // Extract times and images from the forecast data
             var times = data.forecast.map(f => new Date(f.timestamp).toISOString());
-            var images = data.forecast.map(f => `/radar/image/${f.image}`);
+            var images = data.forecast.map(f => f.image); // Fixed: Use the image path directly
             console.log('Times:', times);
             console.log('Images:', images);
 
