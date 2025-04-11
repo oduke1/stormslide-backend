@@ -107,8 +107,8 @@ def radar():
             logger.debug(f"Generating PNG: {output_file}")
 
             try:
-                # Create a plot with fully transparent background
-                fig = plt.figure(figsize=(15, 10), dpi=80, facecolor='none', edgecolor='none')
+                # Create a plot with dimensions matching the map container
+                fig = plt.figure(figsize=(15, 10), dpi=80, facecolor='none', edgecolor='none')  # 15in x 10in at 80 DPI = 1200x800 pixels
                 ax = plt.axes(projection=ccrs.PlateCarree(), facecolor='none')
                 ax.set_extent([-125, -66, 25, 50], crs=ccrs.PlateCarree())  # Continental US
                 ax.add_feature(cfeature.COASTLINE, edgecolor='black', linewidth=0.5)
