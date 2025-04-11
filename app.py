@@ -81,6 +81,9 @@ def radar():
         radar_dir = os.path.join(app.root_path, 'static', 'radar')
         os.makedirs(radar_dir, exist_ok=True)
 
+        # Define the GFS run base time
+        base_time = datetime(2025, 4, 7, 12, 0, 0, tzinfo=UTC)
+
         # Check if GFS files exist
         if not os.path.exists(source_dir) or not os.listdir(source_dir):
             logging.warning("GFS files not found, returning mock data")
@@ -95,12 +98,12 @@ def radar():
                     plt.savefig(image_path, bbox_inches="tight", dpi=100)
                     plt.close()
                     logging.debug(f"Generated mock PNG: {image_name}")
-                timestamp = (datetime.now(UTC) + timedelta(hours=i)).isoformat()
+                timestamp = (base_time + timedelta(hours=i)).isoformat()
                 forecast.append({
                     "precip": [0.0, 0.0],
                     "time": timestamp,
                     "timestamp": timestamp,
-                    "image": image_name
+                    "image": f"/radar/image/{image_name}"
                 })
         else:
             for i in range(0, 16 * 24, 24):  # Full range: f000 to f360
@@ -141,12 +144,12 @@ def radar():
                         logging.debug(f"Generated PNG: {image_name}")
 
                     # Add to forecast with timestamp
-                    timestamp = (datetime.now(UTC) + timedelta(hours=i)).isoformat()
+                    timestamp = (base_time + timedelta(hours=i)).isoformat()
                     forecast.append({
                         "precip": [precip, 0.0],
                         "time": timestamp,
                         "timestamp": timestamp,
-                        "image": image_name
+                        "image": f"/radar/image/{image_name}"
                     })
                 except Exception as e:
                     logging.error(f"Error processing GFS file f{i:03d}: {str(e)}")
