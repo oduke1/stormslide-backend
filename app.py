@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import numpy as np
+import s3fs
 
 # Debug Logging for Python environment
 logging.debug(f"Python executable: {sys.executable}")
@@ -54,92 +55,76 @@ def index():
 
 @app.route('/radar')
 def radar():
-    logger.debug("Received request for /radar")
+    logger.info("Test log: Entering /radar endpoint")
+    handler.flush()
     try:
-        # Define base time for the GFS data
-        base_time = datetime(2025, 4, 7, 12, tzinfo=pytz.UTC)
-        gfs_dir = '/home/ubuntu/data/gfs/20250407/'
-        logger.debug(f"Looking for GFS data in: {gfs_dir}")
-
-        # Check if the GFS directory exists
-        if not os.path.exists(gfs_dir):
-            logger.error(f"GFS directory not found: {gfs_dir}")
-            return jsonify({'error': 'GFS data directory not found'}), 500
+        # Define base time for the GFS data (use a recent date for availability)
+        base_time = datetime(2025, 4, 6, 12, tzinfo=pytz.UTC)  # Changed to 2025-04-06
+        gfs_date_str = base_time.strftime("%Y%m%d")
 
         # Ensure the static/radar directory exists
         radar_dir = '/home/ubuntu/stormslide/static/radar/'
-        try:
-            os.makedirs(radar_dir, exist_ok=True)
-            logger.debug(f"Ensuring radar directory exists: {radar_dir}")
-        except Exception as e:
-            logger.error(f"Failed to create radar directory {radar_dir}: {str(e)}")
-            return jsonify({'error': f"Failed to create radar directory: {str(e)}"}), 500
+        os.makedirs(radar_dir, exist_ok=True)
+        logger.debug(f"Ensuring radar directory exists: {radar_dir}")
+
+        # Use s3fs to access GFS files directly from S3
+        fs = s3fs.S3FileSystem(anon=True)  # Anonymous access for public NOAA bucket
+        bucket = 'noaa-gfs-bdp-pds'
 
         forecast = []
         for i in range(0, 361, 24):  # f000 to f360, every 24 hours
             logger.debug(f"Processing forecast hour f{i:03d}")
             forecast_time = base_time + timedelta(hours=i)
-            file_path = os.path.join(gfs_dir, f"gfs.t12z.pgrb2.0p25.f{i:03d}")
-            
-            # Check if the GFS file exists
-            if not os.path.exists(file_path):
-                logger.error(f"GFS file not found: {file_path}")
+            s3_path = f"s3://{bucket}/gfs.{gfs_date_str}/12/atmos/gfs.t12z.pgrb2.0p25.f{i:03d}"
+            output_file = os.path.join(radar_dir, f"gfs.t12z.pgrb2.0p25.f{i:03d}.png")
+            logger.debug(f"Accessing GFS file from S3: {s3_path}")
+
+            try:
+                # Stream the GFS file from S3
+                ds = xr.open_dataset(fs.open(s3_path), engine='cfgrib', backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface', 'stepType': 'instant'}})
+                logger.debug(f"Loaded dataset for GFS f{i:03d}")
+            except Exception as e:
+                logger.error(f"Failed to load GFS file {s3_path}: {str(e)}")
                 continue
 
-            # Load the GFS data with the corrected filter
-            logger.debug(f"Loading GFS file: {file_path}")
-            try:
-                ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface', 'stepType': 'instant'}})
-            except Exception as e:
-                logger.error(f"Failed to load GFS file {file_path}: {str(e)}")
-                continue
-            
             # Extract precipitation rate
             try:
                 precip = ds['prate'].mean(dim=['latitude', 'longitude']).values
                 logger.debug(f"Calculated mean precipitation: {precip}")
             except Exception as e:
-                logger.error(f"Failed to calculate precipitation for {file_path}: {str(e)}")
+                logger.error(f"Failed to calculate precipitation for {s3_path}: {str(e)}")
                 continue
 
             # Generate PNG using matplotlib and cartopy
-            output_file = os.path.join(radar_dir, f"gfs.t12z.pgrb2.0p25.f{i:03d}.png")
             logger.debug(f"Generating PNG: {output_file}")
-
             try:
-                # Create a plot with default dimensions
-                fig = plt.figure(facecolor='none', edgecolor='none')  # Removed specific figsize
+                fig = plt.figure(figsize=(15, 10), dpi=80, facecolor='none', edgecolor='none')
                 ax = plt.axes(projection=ccrs.PlateCarree(), facecolor='none')
-                ax.set_extent([-125, -66, 25, 50], crs=ccrs.PlateCarree())  # Continental US
+                ax.set_extent([-125, -66, 23, 50], crs=ccrs.PlateCarree())
                 ax.add_feature(cfeature.COASTLINE, edgecolor='black', linewidth=0.5)
                 ax.add_feature(cfeature.BORDERS, edgecolor='black', linewidth=0.5)
                 ax.add_feature(cfeature.STATES, edgecolor='black', linewidth=0.5)
 
-                # Ensure axes background is transparent
                 ax.set_facecolor('none')
                 fig.patch.set_alpha(0.0)
                 ax.patch.set_alpha(0.0)
 
-                # Remove axis spines (borders) to avoid any visible frame
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
                 ax.spines['bottom'].set_visible(False)
                 ax.spines['left'].set_visible(False)
 
-                # Remove axis ticks and labels
                 ax.set_xticks([])
                 ax.set_yticks([])
                 ax.set_xticklabels([])
                 ax.set_yticklabels([])
 
-                # Plot precipitation (convert prate to mm/h)
                 lats = ds['latitude'].values
                 lons = ds['longitude'].values
-                precip_data = ds['prate'].values * 3600  # Convert kg/m^2/s to mm/h
-                levels = np.linspace(0, max(np.max(precip_data), 0.1), 20)  # Avoid zero max
-                cf = ax.contourf(lons, lats, precip_data, levels=levels, cmap='Blues', transform=ccrs.PlateCarree(), alpha=0.8)
+                precip_data = ds['prate'].values * 3600
+                levels = np.linspace(0, max(np.max(precip_data), 0.1), 20)
+                cf = ax.contourf(lons, lats, precip_data, levels=levels, cmap='Blues', transform=ccrs.PlateCarree(), alpha=0.8, antialiased=True)
 
-                # Save with tight layout, minimal padding, and transparent background
                 plt.savefig(output_file, bbox_inches='tight', pad_inches=0.0, transparent=True)
                 plt.close(fig)
                 logger.debug(f"PNG generated: {output_file}")
@@ -147,12 +132,10 @@ def radar():
                 logger.error(f"Failed to generate PNG {output_file}: {str(e)}")
                 continue
 
-            # Ensure the file was created
             if not os.path.exists(output_file):
                 logger.error(f"Failed to create PNG: {output_file}")
                 continue
 
-            # Ensure file permissions
             try:
                 os.chmod(output_file, 0o644)
                 logger.debug(f"Set permissions for PNG: {output_file}")
@@ -166,7 +149,8 @@ def radar():
                 'time': forecast_time.isoformat(),
                 'timestamp': forecast_time.isoformat()
             })
-            logger.debug(f"Added forecast entry: timestamp={forecast_time.isoformat()}")
+            logger.info(f"Added forecast entry: timestamp={forecast_time.isoformat()}")
+            handler.flush()
 
         if not forecast:
             logger.error("No forecast data generated")
