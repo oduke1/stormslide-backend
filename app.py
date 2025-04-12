@@ -58,17 +58,26 @@ def radar():
     logger.info("Test log: Entering /radar endpoint")
     handler.flush()
     try:
-        # Define base time for the GFS data (use a recent date for availability)
-        base_time = datetime(2025, 4, 6, 12, tzinfo=pytz.UTC)  # Changed to 2025-04-06
+        # Define base time for the GFS data (use a historical date for availability)
+        base_time = datetime(2025, 4, 1, 12, tzinfo=pytz.UTC)  # Changed to 2025-04-01
         gfs_date_str = base_time.strftime("%Y%m%d")
 
         # Ensure the static/radar directory exists
         radar_dir = '/home/ubuntu/stormslide/static/radar/'
-        os.makedirs(radar_dir, exist_ok=True)
-        logger.debug(f"Ensuring radar directory exists: {radar_dir}")
+        try:
+            os.makedirs(radar_dir, exist_ok=True)
+            logger.debug(f"Ensuring radar directory exists: {radar_dir}")
+        except Exception as e:
+            logger.error(f"Failed to create radar directory {radar_dir}: {str(e)}")
+            return jsonify({'error': f"Failed to create radar directory: {str(e)}"}), 500
 
         # Use s3fs to access GFS files directly from S3
-        fs = s3fs.S3FileSystem(anon=True)  # Anonymous access for public NOAA bucket
+        try:
+            fs = s3fs.S3FileSystem(anon=True)  # Anonymous access for public NOAA bucket
+        except Exception as e:
+            logger.error(f"Failed to initialize S3FileSystem: {str(e)}")
+            return jsonify({'error': f"Failed to initialize S3 access: {str(e)}"}), 500
+
         bucket = 'noaa-gfs-bdp-pds'
 
         forecast = []
