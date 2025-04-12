@@ -105,17 +105,29 @@ def radar():
                     logger.debug(f"Loaded dataset for GFS f{i:03d}: {ds}")
                     # Check available variables
                     logger.debug(f"Available variables: {list(ds.variables)}")
-                    # Select prate if available
-                    if 'prate' not in ds:
-                        logger.error(f"'prate' variable not found in dataset for {s3_path}")
+                    # Select the correct precipitation variable
+                    precip_var = None
+                    if 'prate' in ds:
+                        precip_var = 'prate'
+                    elif 'APCP' in ds:
+                        precip_var = 'APCP'
+                    else:
+                        logger.error(f"No precipitation variable ('prate' or 'APCP') found in dataset for {s3_path}")
                         continue
+                    logger.debug(f"Using precipitation variable: {precip_var}")
             except Exception as e:
                 logger.error(f"Failed to load GFS file {s3_path}: {str(e)}")
                 continue
 
             # Extract precipitation rate
             try:
-                precip = ds['prate'].mean(dim=['latitude', 'longitude']).values
+                if precip_var == 'prate':
+                    # prate is in kg/m^2/s, convert to mm/h
+                    precip_data = ds[precip_var] * 3600
+                else:  # APCP
+                    # APCP is accumulated precipitation in kg/m^2 (equivalent to mm), no conversion needed
+                    precip_data = ds[precip_var]
+                precip = precip_data.mean(dim=['latitude', 'longitude']).values
                 logger.debug(f"Calculated mean precipitation: {precip}")
             except Exception as e:
                 logger.error(f"Failed to calculate precipitation for {s3_path}: {str(e)}")
@@ -147,7 +159,7 @@ def radar():
 
                 lats = ds['latitude'].values
                 lons = ds['longitude'].values
-                precip_data = ds['prate'].values * 3600
+                precip_data = precip_data.values  # Already converted if needed
                 levels = np.linspace(0, max(np.max(precip_data), 0.1), 20)
                 cf = ax.contourf(lons, lats, precip_data, levels=levels, cmap='Blues', transform=ccrs.PlateCarree(), alpha=0.8, antialiased=True)
 
