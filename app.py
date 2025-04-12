@@ -35,8 +35,8 @@ except ImportError as e:
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
-# File handler - log to /var/log/flask_app.log
-handler = RotatingFileHandler('/var/log/flask_app.log', maxBytes=10000000, backupCount=1)
+# File handler - log to /home/ubuntu/stormslide/flask_app.log
+handler = RotatingFileHandler('/home/ubuntu/stormslide/flask_app.log', maxBytes=10000000, backupCount=1)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
@@ -86,10 +86,10 @@ def radar():
                 logger.error(f"GFS file not found: {file_path}")
                 continue
 
-            # Load the GFS data
+            # Load the GFS data with the corrected filter
             logger.debug(f"Loading GFS file: {file_path}")
             try:
-                ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface'}})
+                ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface', 'stepType': 'instant'}})
             except Exception as e:
                 logger.error(f"Failed to load GFS file {file_path}: {str(e)}")
                 continue
