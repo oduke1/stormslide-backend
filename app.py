@@ -61,6 +61,7 @@ def radar():
         # Define base time for the GFS data (use a recent date for availability)
         base_time = datetime(2025, 4, 10, 12, tzinfo=pytz.UTC)  # Changed to 2025-04-10
         gfs_date_str = base_time.strftime("%Y%m%d")
+        logger.debug(f"Base time set to: {base_time}, gfs_date_str: {gfs_date_str}")
 
         # Ensure the static/radar directory exists
         radar_dir = '/home/ubuntu/stormslide/static/radar/'
@@ -94,11 +95,20 @@ def radar():
                 if not fs.exists(s3_path):
                     logger.error(f"S3 file not found: {s3_path}")
                     continue
+                logger.debug(f"S3 file exists: {s3_path}")
 
                 # Stream the GFS file from S3
                 with fs.open(s3_path, 'rb') as f:
-                    ds = xr.open_dataset(f, engine='cfgrib', backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface', 'stepType': 'instant'}})
-                logger.debug(f"Loaded dataset for GFS f{i:03d}")
+                    logger.debug(f"Opened S3 file stream: {s3_path}")
+                    # Load the dataset without filter_by_keys to see all variables
+                    ds = xr.open_dataset(f, engine='cfgrib')
+                    logger.debug(f"Loaded dataset for GFS f{i:03d}: {ds}")
+                    # Check available variables
+                    logger.debug(f"Available variables: {list(ds.variables)}")
+                    # Select prate if available
+                    if 'prate' not in ds:
+                        logger.error(f"'prate' variable not found in dataset for {s3_path}")
+                        continue
             except Exception as e:
                 logger.error(f"Failed to load GFS file {s3_path}: {str(e)}")
                 continue
