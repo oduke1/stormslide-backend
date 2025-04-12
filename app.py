@@ -58,8 +58,8 @@ def radar():
     logger.info("Test log: Entering /radar endpoint")
     handler.flush()
     try:
-        # Define base time for the GFS data (use a historical date for availability)
-        base_time = datetime(2025, 4, 1, 12, tzinfo=pytz.UTC)  # Changed to 2025-04-01
+        # Define base time for the GFS data (use a recent date for availability)
+        base_time = datetime(2025, 4, 10, 12, tzinfo=pytz.UTC)  # Changed to 2025-04-10
         gfs_date_str = base_time.strftime("%Y%m%d")
 
         # Ensure the static/radar directory exists
@@ -74,6 +74,7 @@ def radar():
         # Use s3fs to access GFS files directly from S3
         try:
             fs = s3fs.S3FileSystem(anon=True)  # Anonymous access for public NOAA bucket
+            logger.debug("Initialized S3FileSystem successfully")
         except Exception as e:
             logger.error(f"Failed to initialize S3FileSystem: {str(e)}")
             return jsonify({'error': f"Failed to initialize S3 access: {str(e)}"}), 500
@@ -89,8 +90,14 @@ def radar():
             logger.debug(f"Accessing GFS file from S3: {s3_path}")
 
             try:
+                # Check if the file exists on S3
+                if not fs.exists(s3_path):
+                    logger.error(f"S3 file not found: {s3_path}")
+                    continue
+
                 # Stream the GFS file from S3
-                ds = xr.open_dataset(fs.open(s3_path), engine='cfgrib', backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface', 'stepType': 'instant'}})
+                with fs.open(s3_path, 'rb') as f:
+                    ds = xr.open_dataset(f, engine='cfgrib', backend_kwargs={'filter_by_keys': {'typeOfLevel': 'surface', 'stepType': 'instant'}})
                 logger.debug(f"Loaded dataset for GFS f{i:03d}")
             except Exception as e:
                 logger.error(f"Failed to load GFS file {s3_path}: {str(e)}")
