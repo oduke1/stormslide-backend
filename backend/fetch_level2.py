@@ -1,12 +1,12 @@
 # backend/fetch_level2.py
 import boto3
-from datetime import datetime
 
 def fetch_latest_level2(radar_site='KTLX'):
     try:
         s3 = boto3.client('s3', region_name='us-east-1')
         bucket = 'noaa-nexrad-level2'
-        date = datetime.utcnow().strftime('%Y%m%d')
+        # Use a historical date with known data
+        date = '2020/05/03'  # Instead of datetime.utcnow().strftime('%Y%m%d')
         prefix = f'{date}/{radar_site}/'
         response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
         if 'Contents' not in response:
