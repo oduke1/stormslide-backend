@@ -3,12 +3,12 @@ import boto3
 import os
 from datetime import datetime, timedelta
 
-def fetch_latest_level2(radar_site='KTLH'):
+def fetch_latest_level2(radar_site: str = 'KTLH') -> str | None:
     try:
         s3 = boto3.client('s3', region_name='us-east-1')
         bucket = 'noaa-nexrad-level2'
         # Use the most recent date (try today and work backwards)
-        current_date = datetime.utcnow()
+        current_date = datetime.now(tz=datetime.UTC)  # Fix deprecation warning
         for i in range(7):  # Try the last 7 days
             date = (current_date - timedelta(days=i)).strftime('%Y/%m/%d')
             prefix = f'{date}/{radar_site}/'
