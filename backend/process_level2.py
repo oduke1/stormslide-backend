@@ -2,7 +2,7 @@
 import pyart
 import numpy as np
 
-def process_level2(file_path):
+def process_level2(file_path, max_sweeps=5):  # Limit number of sweeps for testing
     try:
         radar = pyart.io.read_nexrad_archive(file_path)
         velocity = radar.fields['velocity']['data']  # Super-res velocity (m/s)
@@ -14,12 +14,18 @@ def process_level2(file_path):
         storm_motion = 10  # m/s
         sr_velocity = velocity - storm_motion
 
-        # Detect velocity couplets
+        # Detect velocity couplets (limit to max_sweeps)
         couplets = []
-        for i in range(sr_velocity.shape[0]):
+        num_sweeps = min(sr_velocity.shape[0], max_sweeps)
+        for i in range(num_sweeps):
             for j in range(sr_velocity.shape[1] - 1):
                 shear = abs(sr_velocity[i, j] - sr_velocity[i, j + 1])
-                if shear > 40 and reflectivity[i, j] > 50:  # TVS + debris threshold
+                # Ensure reflectivity[i, j] is a numeric value
+                try:
+                    refl_value = float(reflectivity[i, j]) if not isinstance(reflectivity[i, j], np.ma.MaskedConstant) else -999
+                except (TypeError, AttributeError):
+                    refl_value = -999  # Default to invalid value if data is corrupt
+                if shear > 40 and refl_value > 50:  # TVS + debris threshold
                     couplets.append({
                         'lat': float(lats[i, j]),
                         'lon': float(lons[i, j]),
