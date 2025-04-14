@@ -1,14 +1,6 @@
 # backend/combine_data.py
-def process_level3(tvs_data):
-    points = []
-    for tvs in tvs_data.get('response', []):
-        points.append({
-            'lat': tvs['loc']['lat'],
-            'lon': tvs['loc']['long'],
-            'shear': tvs.get('shear', 0),
-            'type': tvs['type']  # 'TVS' or 'MESO'
-        })
-    return points
+from process_level2 import process_level2  # Add this import
+from process_level3 import process_level3
 
 def combine_tornado_data(level2_file, level3_data):
     level2_points = process_level2(level2_file)
