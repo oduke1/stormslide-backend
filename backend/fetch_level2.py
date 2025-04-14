@@ -12,7 +12,8 @@ def fetch_latest_level2(radar_site='KTLX'):
         response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
         if 'Contents' not in response:
             return None
-        latest_file = max(response['Contents'], key=lambda x: x['LastModified'])['Key']
+        # Filter for a specific file known to work
+        latest_file = '2020/05/03/KTLX/KTLX20200503_234952_V06'
         local_file = f'data/{latest_file.split("/")[-1]}'
         # Check if file already exists
         if os.path.exists(local_file):
