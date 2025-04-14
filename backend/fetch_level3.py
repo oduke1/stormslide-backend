@@ -5,7 +5,8 @@ def fetch_level3_tvs(radar_site='KTLH'):
     try:
         api_key = '2qRfyRrVeDB22pw0Z2mCbAiJrHS0G0FLVi9wLR3Z'  # AerisWeather API secret
         client_id = 'HIXM4oS25l3yBhWDFrM4k'  # AerisWeather client ID
-        url = f'https://api.aerisapi.com/radar/tvs/{radar_site}?client_id={client_id}&client_secret={api_key}'
+        # Test with a different radar endpoint
+        url = f'https://api.aerisapi.com/radar/stormreports/{radar_site}?client_id={client_id}&client_secret={api_key}'
         response = requests.get(url, timeout=10)
         print(f"Status Code: {response.status_code}")
         print(f"Response: {response.json()}")
