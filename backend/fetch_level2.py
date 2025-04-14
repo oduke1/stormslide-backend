@@ -1,14 +1,14 @@
 # backend/fetch_level2.py
 import boto3
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 def fetch_latest_level2(radar_site: str = 'KTLH') -> str | None:
     try:
         s3 = boto3.client('s3', region_name='us-east-1')
         bucket = 'noaa-nexrad-level2'
         # Use the most recent date (try today and work backwards)
-        current_date = datetime.now(tz=datetime.UTC)
+        current_date = datetime.now(tz=timezone.utc)
         for i in range(30):  # Try the last 30 days
             date = (current_date - timedelta(days=i)).strftime('%Y/%m/%d')
             prefix = f'{date}/{radar_site}/'
