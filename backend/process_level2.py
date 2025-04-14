@@ -19,7 +19,13 @@ def process_level2(file_path, max_sweeps=5):  # Limit number of sweeps for testi
         num_sweeps = min(sr_velocity.shape[0], max_sweeps)
         for i in range(num_sweeps):
             for j in range(sr_velocity.shape[1] - 1):
-                shear = abs(sr_velocity[i, j] - sr_velocity[i, j + 1])
+                # Ensure velocity values are valid
+                try:
+                    v1 = float(sr_velocity[i, j]) if not isinstance(sr_velocity[i, j], np.ma.MaskedConstant) else 0
+                    v2 = float(sr_velocity[i, j + 1]) if not isinstance(sr_velocity[i, j + 1], np.ma.MaskedConstant) else 0
+                    shear = abs(v1 - v2)
+                except (TypeError, AttributeError):
+                    shear = 0  # Default to 0 if velocity data is invalid
                 # Ensure reflectivity[i, j] is a numeric value
                 try:
                     refl_value = float(reflectivity[i, j]) if not isinstance(reflectivity[i, j], np.ma.MaskedConstant) else -999
