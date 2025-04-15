@@ -55,8 +55,9 @@ function initMap() {
             return response.json();
         })
         .then(weather => {
-            const temperature = weather.temperature ? `${weather.temperature}°C` : 'N/A';
-            const condition = weather.weather || 'N/A';
+            const observation = weather.response?.[0]?.ob || {};
+            const temperature = observation.tempC ? `${observation.tempC}°C` : 'N/A';
+            const condition = observation.weather || 'N/A';
             const weatherInfo = new google.maps.InfoWindow({
                 content: `Current Weather in Tallahassee, FL:<br>Temperature: ${temperature}<br>Condition: ${condition}`,
                 position: { lat: 30.4383, lng: -84.2807 }
