@@ -3,8 +3,10 @@ from fetch_level2 import fetch_latest_level2
 from fetch_level3 import fetch_level3_tvs
 from combine_data import combine_tornado_data
 import requests
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "https://stormslide.net"}})  # Allow requests from stormslide.net
 
 @app.route('/tornadoes')
 def get_tornadoes():
