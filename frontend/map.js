@@ -1,109 +1,63 @@
-// frontend/map.js
-const map = new maplibregl.Map({
-    container: 'map',
-    style: {
-        version: 8,
-        sources: {
-            osm: {
-                type: 'raster',
-                tiles: ['https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'],
-                tileSize: 256,
-                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            }
-        },
-        layers: [{
-            id: 'osm',
-            type: 'raster',
-            source: 'osm',
-            minzoom: 0,
-            maxzoom: 18
-        }]
-    },
-    center: [-84.2807, 30.4383], // Tallahassee, FL (KTLH)
-    zoom: 7
-});
-
-map.on('load', async () => {
-    const response = await fetch('https://stormslide.net/tornadoes');
-    const tornadoes = await response.json();
-    console.log('Tornadoes:', tornadoes);
-
-    map.addSource('tornadoes', {
-        type: 'geojson',
-        data: {
-            type: 'FeatureCollection',
-            features: tornadoes.map(t => ({
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [t.lon, t.lat] },
-                properties: { shear: t.shear, type: t.type, source: t.source, time: t.time }
-            }))
-        }
+// Initialize the map
+function initMap() {
+    const map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 30.4383, lng: -84.2807 }, // Tallahassee, FL
+        zoom: 9,
+        mapTypeId: 'roadmap' // Options: 'roadmap', 'satellite', 'hybrid', 'terrain'
     });
 
-    map.addLayer({
-        id: 'level2-layer',
-        type: 'circle',
-        source: 'tornadoes',
-        filter: ['==', ['get', 'source'], 'Level II'],
-        paint: {
-            'circle-radius': 8,
-            'circle-color': '#ffff00',
-            'circle-opacity': 0.7
-        }
-    });
+    // Fetch tornado data
+    fetch('/tornadoes')
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
+        .then(tornadoes => {
+            console.log('Tornadoes:', tornadoes);
 
-    map.addLayer({
-        id: 'level3-tvs',
-        type: 'circle',
-        source: 'tornadoes',
-        filter: ['all', ['==', ['get', 'source'], 'Level III'], ['==', ['get', 'type'], 'TVS']],
-        paint: {
-            'circle-radius': 10,
-            'circle-color': '#ff0000',
-            'circle-opacity': 0.8
-        }
-    });
+            tornadoes.forEach(tornado => {
+                const position = { lat: tornado.latitude, lng: tornado.longitude };
 
-    map.addLayer({
-        id: 'level3-meso',
-        type: 'circle',
-        source: 'tornadoes',
-        filter: ['all', ['==', ['get', 'source'], 'Level III'], ['==', ['get', 'type'], 'MESO']],
-        paint: {
-            'circle-radius': 8,
-            'circle-color': '#ffa500',
-            'circle-opacity': 0.8
-        }
-    });
+                // Level II: Yellow circles
+                if (tornado.source === 'Level II') {
+                    new google.maps.Circle({
+                        strokeColor: '#FFFF00',
+                        strokeOpacity: 0.8,
+                        strokeWeight: 2,
+                        fillColor: '#FFFF00',
+                        fillOpacity: 0.7,
+                        map: map,
+                        center: position,
+                        radius: 800 // 8px equivalent in meters (approximate)
+                    });
+                }
 
-    map.on('click', 'level2-layer', (e) => {
-        const props = e.features[0].properties;
-        new maplibregl.Popup()
-            .setLngLat(e.lngLat)
-            .setHTML(`Potential Tornado<br>Shear: ${props.shear} m/s<br>Time: ${props.time || 'Unknown'}`)
-            .addTo(map);
-    });
+                // Level III: TVS (red triangle) and MESO (orange square)
+                if (tornado.source === 'Level III') {
+                    const icon = {
+                        url: tornado.type === 'TVS' ? 'https://your-domain.com/triangle.png' : 'https://your-domain.com/square.png',
+                        scaledSize: new google.maps.Size(15, 15) // 15x15 pixels
+                    };
+                    const marker = new google.maps.Marker({
+                        position: position,
+                        map: map,
+                        icon: icon
+                    });
 
-    map.on('click', 'level3-tvs', (e) => {
-        const props = e.features[0].properties;
-        new maplibregl.Popup()
-            .setLngLat(e.lngLat)
-            .setHTML(`Confirmed TVS<br>Shear: ${props.shear} m/s<br>Time: ${props.time || 'Unknown'}`)
-            .addTo(map);
-    });
+                    // Optional: Add info window for shear value
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `Shear: ${tornado.shear}`
+                    });
+                    marker.addListener('click', () => {
+                        infoWindow.open(map, marker);
+                    });
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching tornadoes:', error);
+        });
+}
 
-    map.on('click', 'level3-meso', (e) => {
-        const props = e.features[0].properties;
-        new maplibregl.Popup()
-            .setLngLat(e.lngLat)
-            .setHTML(`Mesocyclone<br>Shear: ${props.shear} m/s<br>Time: ${props.time || 'Unknown'}`)
-            .addTo(map);
-    });
-
-    map.on('mouseenter', 'level2-layer', () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', 'level2-layer', () => map.getCanvas().style.cursor = '');
-    map.on('mouseenter', 'level3-tvs', () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', 'level3-tvs', () => map.getCanvas().style.cursor = '');
-    map.on('mouseenter', 'level3-meso', () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', 'level3-meso', () => map.getCanvas().style.cursor = '');
-});
+// Ensure initMap is called after the API loads
+window.initMap = initMap;
