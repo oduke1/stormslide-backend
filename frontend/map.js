@@ -1,12 +1,10 @@
-// Initialize the map
 function initMap() {
     const map = new google.maps.Map(document.getElementById('map'), {
         center: { lat: 30.4383, lng: -84.2807 }, // Tallahassee, FL
         zoom: 9,
-        mapTypeId: 'roadmap' // Options: 'roadmap', 'satellite', 'hybrid', 'terrain'
+        mapTypeId: 'roadmap'
     });
 
-    // Fetch tornado data
     fetch('/tornadoes')
         .then(response => {
             if (!response.ok) throw new Error('Network response was not ok');
@@ -14,11 +12,8 @@ function initMap() {
         })
         .then(tornadoes => {
             console.log('Tornadoes:', tornadoes);
-
             tornadoes.forEach(tornado => {
                 const position = { lat: tornado.latitude, lng: tornado.longitude };
-
-                // Level II: Yellow circles
                 if (tornado.source === 'Level II') {
                     new google.maps.Circle({
                         strokeColor: '#FFFF00',
@@ -28,23 +23,19 @@ function initMap() {
                         fillOpacity: 0.7,
                         map: map,
                         center: position,
-                        radius: 800 // 8px equivalent in meters (approximate)
+                        radius: 800
                     });
                 }
-
-                // Level III: TVS (red triangle) and MESO (orange square)
                 if (tornado.source === 'Level III') {
                     const icon = {
                         url: tornado.type === 'TVS' ? 'https://your-domain.com/triangle.png' : 'https://your-domain.com/square.png',
-                        scaledSize: new google.maps.Size(15, 15) // 15x15 pixels
+                        scaledSize: new google.maps.Size(15, 15)
                     };
                     const marker = new google.maps.Marker({
                         position: position,
                         map: map,
                         icon: icon
                     });
-
-                    // Optional: Add info window for shear value
                     const infoWindow = new google.maps.InfoWindow({
                         content: `Shear: ${tornado.shear}`
                     });
@@ -57,7 +48,24 @@ function initMap() {
         .catch(error => {
             console.error('Error fetching tornadoes:', error);
         });
+
+    fetch('https://weather.googleapis.com/v1/currentConditions?lat=30.4383&lng=-84.2807&key=AIzaSyCF9AtJmtOqIVDDciiETJFhP06trEtbxjA')
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
+        .then(weather => {
+            const temperature = weather.temperature ? `${weather.temperature}°C` : 'N/A';
+            const condition = weather.weather || 'N/A';
+            const weatherInfo = new google.maps.InfoWindow({
+                content: `Current Weather in Tallahassee, FL:<br>Temperature: ${temperature}<br>Condition: ${condition}`,
+                position: { lat: 30.4383, lng: -84.2807 }
+            });
+            weatherInfo.open(map);
+        })
+        .catch(error => {
+            console.error('Error fetching weather data:', error);
+        });
 }
 
-// Ensure initMap is called after the API loads
 window.initMap = initMap;
