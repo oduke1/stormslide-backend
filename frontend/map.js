@@ -49,7 +49,7 @@ function initMap() {
             console.error('Error fetching tornadoes:', error);
         });
 
-    fetch('https://weather.googleapis.com/v1/currentConditions?lat=30.4383&lng=-84.2807&key=AIzaSyCF9AtJmtOqIVDDciiETJFhP06trEtbxjA')
+    fetch('/proxy-weather')
         .then(response => {
             if (!response.ok) throw new Error('Network response was not ok');
             return response.json();
