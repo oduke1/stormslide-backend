@@ -3,3 +3,5 @@ boto3==1.37.33
 requests==2.32.3
 arm-pyart==2.0.1
 numpy==2.2.4
+flask-cors==5.0.1
+gunicorn==23.0.0
