@@ -6,9 +6,6 @@ import requests
 from flask_cors import CORS
 import logging
 from cachetools import TTLCache
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-import time
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "https://stormslide.net"}})
@@ -20,23 +17,6 @@ logger = logging.getLogger(__name__)
 # Cache for 5 minutes (300 seconds)
 weather_cache = TTLCache(maxsize=1, ttl=300)
 tornadoes_cache = TTLCache(maxsize=1, ttl=300)
-
-# Configure requests session with retries
-session = requests.Session()
-retries = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504, 592])
-session.mount('https://', HTTPAdapter(max_retries=retries))
-
-def check_rate_limit(response):
-    """Check Xweather rate-limit headers and delay if necessary."""
-    remaining_minute = int(response.headers.get('X-RateLimit-Remaining-Minute', 999))
-    remaining_period = int(response.headers.get('X-RateLimit-Remaining-Period', 999))
-    reset_minute = response.headers.get('X-RateLimit-Reset-Minute', None)
-    
-    logger.info(f"Rate limits - Remaining Minute: {remaining_minute}, Remaining Period: {remaining_period}, Reset Minute: {reset_minute}")
-    
-    if remaining_minute <= 5:  # Delay if close to minutely limit
-        logger.warning("Nearing minutely rate limit, delaying request")
-        time.sleep(5)  # Delay for 5 seconds to avoid hitting the limit
 
 @app.route('/tornadoes')
 def get_tornadoes():
@@ -85,23 +65,12 @@ def proxy_weather():
         client_id = 'HIXM4oS25l3yBhWDFrM4k'
         client_secret = '2qRfyRrVeDB22pw0Z2mCbAiJrHS0G0FLVi9wLR3Z'
         url = f'https://api.aerisapi.com/conditions/tallahassee,fl?limit=1&client_id={client_id}&client_secret={client_secret}'
-        response = session.get(url, timeout=15)
+        response = requests.get(url, timeout=15)
         response.raise_for_status()
-        check_rate_limit(response)  # Check rate limits and delay if necessary
         flask_response = Response(response.content, status=response.status_code, mimetype='application/json')
         flask_response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
         weather_cache['weather'] = {'content': response.content, 'status': response.status_code}
         return flask_response
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 429:
-            logger.warning("Rate limit exceeded, delaying and retrying")
-            time.sleep(10)  # Wait 10 seconds before retrying
-            return proxy_weather()  # Retry the request
-        logger.error(f"Error fetching Xweather data: {str(e)}", exc_info=True)
-        response = jsonify({"error": f"Failed to fetch weather data: {str(e)}"})
-        response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
-        weather_cache['weather'] = {'content': response.get_data(), 'status': 502}
-        return response, 502
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching Xweather data: {str(e)}", exc_info=True)
         response = jsonify({"error": f"Failed to fetch weather data: {str(e)}"})
