@@ -28,7 +28,7 @@ function initMap() {
                 }
                 if (tornado.source === 'Level III') {
                     const icon = {
-                        url: tornado.type === 'TVS' ? 'https://your-domain.com/triangle.png' : 'https://your-domain.com/square.png',
+                        url: tornado.type === 'TVS' ? 'https://stormslide-assets.s3.us-east-1.amazonaws.com/triangle.png' : 'https://stormslide-assets.s3.us-east-1.amazonaws.com/square.png',
                         scaledSize: new google.maps.Size(15, 15)
                     };
                     const marker = new google.maps.Marker({
