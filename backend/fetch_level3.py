@@ -1,16 +1,11 @@
-import requests
-import logging
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 def fetch_level3_tvs(location='KTLH'):
     try:
         api_key = '2qRfyRrVeDB22pw0Z2mCbAiJrHS0G0FLVi9wLR3Z'
         client_id = 'HIXM4oS25l3yBhWDFrM4k'
         url = f'https://api.aerisapi.com/stormcells/closest?p={location}&query=tvs:1,mda:1&limit=10&client_id={client_id}&client_secret={api_key}'
         response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        check_rate_limit(response)
         logger.info(f"Status Code: {response.status_code}")
         logger.info(f"Response: {response.json()}")
         if response.status_code == 200:
@@ -35,7 +30,3 @@ def fetch_level3_tvs(location='KTLH'):
             'data': [],
             'error': str(e)
         }
-
-if __name__ == '__main__':
-    result = fetch_level3_tvs()
-    print(result)
