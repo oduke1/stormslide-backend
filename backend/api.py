@@ -24,9 +24,9 @@ def check_rate_limit(response):
     remaining_minute = int(response.headers.get('X-RateLimit-Remaining-Minute', 999))
     remaining_period = int(response.headers.get('X-RateLimit-Remaining-Period', 999))
     reset_minute = response.headers.get('X-RateLimit-Reset-Minute', None)
-    
+
     logger.info(f"Rate limits - Remaining Minute: {remaining_minute}, Remaining Period: {remaining_period}, Reset Minute: {reset_minute}")
-    
+
     if remaining_minute <= 5:
         logger.warning("Nearing minutely rate limit, delaying request")
         time.sleep(5)
@@ -41,34 +41,6 @@ def get_tornadoes():
             flask_response = Response(response_data['content'], status=response_data['status'], mimetype='application/json')
             flask_response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
             return flask_response
-
-        # Comment out simulated data
-        # simulated_tornadoes = [
-        #     {
-        #         "latitude": 30.4383,
-        #         "longitude": -84.2807,
-        #         "source": "Level III",
-        #         "type": "TVS",
-        #         "shear": 70
-        #     },
-        #     {
-        #         "latitude": 30.5,
-        #         "longitude": -84.3,
-        #         "source": "Level III",
-        #         "type": "MESO",
-        #         "shear": 50
-        #     },
-        #     {
-        #         "latitude": 30.4,
-        #         "longitude": -84.2,
-        #         "source": "Level II",
-        #         "shear": 60
-        #     }
-        # ]
-        # response = jsonify(simulated_tornadoes)
-        # response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
-        # tornadoes_cache['tornadoes'] = {'content': response.get_data(), 'status': 200}
-        # return response
 
         l2_file = fetch_latest_level2()
         l3_data = fetch_level3_tvs()
