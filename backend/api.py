@@ -73,11 +73,12 @@ def get_tornadoes():
         l2_file = fetch_latest_level2()
         l3_data = fetch_level3_tvs()
         if not l2_file:
-            logger.error("Failed to fetch Level II radar data")
-            response = jsonify({'error': 'Failed to fetch Level II radar data'})
+            logger.warning("No recent Level II radar data available, returning empty tornado list")
+            tornadoes = []  # Return empty list instead of failing
+            response = jsonify(tornadoes)
             response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
-            tornadoes_cache['tornadoes'] = {'content': response.get_data(), 'status': 500}
-            return response, 500
+            tornadoes_cache['tornadoes'] = {'content': response.get_data(), 'status': 200}
+            return response
 
         # l3_data can be an empty list (valid response)
         tornadoes = combine_tornado_data(l2_file, l3_data if l3_data is not None else [])
