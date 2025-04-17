@@ -42,48 +42,49 @@ def get_tornadoes():
             flask_response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
             return flask_response
 
-        # Simulate tornado data for testing
-        simulated_tornadoes = [
-            {
-                "latitude": 30.4383,  # Near Tallahassee, FL
-                "longitude": -84.2807,
-                "source": "Level III",
-                "type": "TVS",
-                "shear": 70
-            },
-            {
-                "latitude": 30.5,  # Slightly north of Tallahassee
-                "longitude": -84.3,
-                "source": "Level III",
-                "type": "MESO",
-                "shear": 50
-            },
-            {
-                "latitude": 30.4,  # Slightly south of Tallahassee
-                "longitude": -84.2,
-                "source": "Level II",
-                "shear": 60
-            }
-        ]
-        response = jsonify(simulated_tornadoes)
-        response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
-        tornadoes_cache['tornadoes'] = {'content': response.get_data(), 'status': 200}
-        return response
-
-        # Comment out the real data fetch for testing
-        # l2_file = fetch_latest_level2()
-        # l3_data = fetch_level3_tvs()
-        # if not l2_file:
-        #     logger.error("Failed to fetch Level II radar data")
-        #     response = jsonify({'error': 'Failed to fetch Level II radar data'})
-        #     response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
-        #     tornadoes_cache['tornadoes'] = {'content': response.get_data(), 'status': 500}
-        #     return response, 500
-        # tornadoes = combine_tornado_data(l2_file, l3_data if l3_data is not None else [])
-        # response = jsonify(tornadoes)
+        # Comment out simulated data
+        # simulated_tornadoes = [
+        #     {
+        #         "latitude": 30.4383,
+        #         "longitude": -84.2807,
+        #         "source": "Level III",
+        #         "type": "TVS",
+        #         "shear": 70
+        #     },
+        #     {
+        #         "latitude": 30.5,
+        #         "longitude": -84.3,
+        #         "source": "Level III",
+        #         "type": "MESO",
+        #         "shear": 50
+        #     },
+        #     {
+        #         "latitude": 30.4,
+        #         "longitude": -84.2,
+        #         "source": "Level II",
+        #         "shear": 60
+        #     }
+        # ]
+        # response = jsonify(simulated_tornadoes)
         # response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
         # tornadoes_cache['tornadoes'] = {'content': response.get_data(), 'status': 200}
         # return response
+
+        l2_file = fetch_latest_level2()
+        l3_data = fetch_level3_tvs()
+        if not l2_file:
+            logger.error("Failed to fetch Level II radar data")
+            response = jsonify({'error': 'Failed to fetch Level II radar data'})
+            response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
+            tornadoes_cache['tornadoes'] = {'content': response.get_data(), 'status': 500}
+            return response, 500
+
+        # l3_data can be an empty list (valid response)
+        tornadoes = combine_tornado_data(l2_file, l3_data if l3_data is not None else [])
+        response = jsonify(tornadoes)
+        response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
+        tornadoes_cache['tornadoes'] = {'content': response.get_data(), 'status': 200}
+        return response
     except Exception as e:
         logger.error(f"Error in /tornadoes endpoint: {str(e)}", exc_info=True)
         response = jsonify({'error': f'Server error: {str(e)}'})
