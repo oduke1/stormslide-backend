@@ -5,70 +5,87 @@ function initMap() {
         mapTypeId: 'roadmap'
     });
 
-    fetch('/tornadoes')
-        .then(response => {
-            if (!response.ok) throw new Error('Network response was not ok');
-            return response.json();
-        })
-        .then(tornadoes => {
-            console.log('Tornadoes:', tornadoes);
-            tornadoes.forEach(tornado => {
-                const position = { lat: tornado.latitude, lng: tornado.longitude };
-                if (tornado.source === 'Level II') {
-                    new google.maps.Circle({
-                        strokeColor: '#FFFF00',
-                        strokeOpacity: 0.8,
-                        strokeWeight: 2,
-                        fillColor: '#FFFF00',
-                        fillOpacity: 0.7,
-                        map: map,
-                        center: position,
-                        radius: 800
-                    });
-                }
-                if (tornado.source === 'Level III') {
-                    const icon = {
-                        url: tornado.type === 'TVS' ? 'https://stormslide-assets.s3.us-east-1.amazonaws.com/triangle.png' : 'https://stormslide-assets.s3.us-east-1.amazonaws.com/square.png',
-                        scaledSize: new google.maps.Size(15, 15)
-                    };
-                    const marker = new google.maps.Marker({
-                        position: position,
-                        map: map,
-                        icon: icon
-                    });
-                    const infoWindow = new google.maps.InfoWindow({
-                        content: `Shear: ${tornado.shear}`
-                    });
-                    marker.addListener('click', () => {
-                        infoWindow.open(map, marker);
-                    });
-                }
-            });
-        })
-        .catch(error => {
-            console.error('Error fetching tornadoes:', error);
-        });
+    // Debounce function to limit rapid API calls
+    const debounce = (func, wait) => {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func(...args), wait);
+        };
+    };
 
-    fetch('/proxy-weather')
-        .then(response => {
-            if (!response.ok) throw new Error('Network response was not ok');
-            return response.json();
-        })
-        .then(weather => {
-            console.log('Weather response:', weather);
-            const dataSource = weather.response?.[0]?.periods?.[0] || weather.response?.[0]?.ob || weather.response?.[0] || {};
-            const temperature = dataSource.tempC ? `${dataSource.tempC}°C` : 'N/A';
-            const condition = dataSource.weather || 'N/A';
-            console.log('Parsed temperature:', temperature, 'Condition:', condition);
-            const weatherInfo = new google.maps.InfoWindow({
-                content: `Current Weather in Tallahassee, FL:<br>Temperature: ${temperature}<br>Condition: ${condition}`,
-                position: { lat: 30.4383, lng: -84.2807 }
+    const fetchTornadoes = debounce(() => {
+        fetch('/tornadoes')
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(tornadoes => {
+                console.log('Tornadoes:', tornadoes);
+                tornadoes.forEach(tornado => {
+                    const position = { lat: tornado.latitude, lng: tornado.longitude };
+                    if (tornado.source === 'Level II') {
+                        new google.maps.Circle({
+                            strokeColor: '#FFFF00',
+                            strokeOpacity: 0.8,
+                            strokeWeight: 2,
+                            fillColor: '#FFFF00',
+                            fillOpacity: 0.7,
+                            map: map,
+                            center: position,
+                            radius: 800
+                        });
+                    }
+                    if (tornado.source === 'Level III') {
+                        const icon = {
+                            url: tornado.type === 'TVS' ? 'https://stormslide-assets.s3.us-east-1.amazonaws.com/triangle.png' : 'https://stormslide-assets.s3.us-east-1.amazonaws.com/square.png',
+                            scaledSize: new google.maps.Size(15, 15)
+                        };
+                        const marker = new google.maps.Marker({
+                            position: position,
+                            map: map,
+                            icon: icon
+                        });
+                        const infoWindow = new google.maps.InfoWindow({
+                            content: `Shear: ${tornado.shear}`
+                        });
+                        marker.addListener('click', () => {
+                            infoWindow.open(map, marker);
+                        });
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching tornadoes:', error);
             });
-            weatherInfo.open(map);
-        })
-        .catch(error => {
-            console.error('Error fetching weather data:', error);
-        });
+    }, 1000); // Debounce for 1 second
+
+    const fetchWeather = debounce(() => {
+        fetch('/proxy-weather')
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(weather => {
+                console.log('Weather response:', weather);
+                const dataSource = weather.response?.[0]?.periods?.[0] || weather.response?.[0]?.ob || weather.response?.[0] || {};
+                const temperature = dataSource.tempC ? `${dataSource.tempC}°C` : 'N/A';
+                const condition = dataSource.weather || 'N/A';
+                console.log('Parsed temperature:', temperature, 'Condition:', condition);
+                const weatherInfo = new google.maps.InfoWindow({
+                    content: `Current Weather in Tallahassee, FL:<br>Temperature: ${temperature}<br>Condition: ${condition}`,
+                    position: { lat: 30.4383, lng: -84.2807 }
+                });
+                weatherInfo.open(map);
+            })
+            .catch(error => {
+                console.error('Error fetching weather data:', error);
+            });
+    }, 1000); // Debounce for 1 second
+
+    // Initial fetch calls
+    fetchTornadoes();
+    fetchWeather();
 }
 
 window.initMap = initMap;
