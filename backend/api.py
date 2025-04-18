@@ -44,16 +44,17 @@ def get_tornadoes():
 
         l2_file = fetch_latest_level2()
         l3_data = fetch_level3_tvs()
-        if not l2_file:
-            logger.warning("No recent Level II radar data available, returning empty tornado list")
-            tornadoes = []  # Return empty list instead of failing
-            response = jsonify(tornadoes)
-            response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
-            tornadoes_cache['tornadoes'] = {'content': response.get_data(), 'status': 200}
-            return response
 
-        # l3_data can be an empty list (valid response)
-        tornadoes = combine_tornado_data(l2_file, l3_data if l3_data is not None else [])
+        # Handle failure of either Level II or Level III data fetch
+        if not l2_file:
+            logger.warning("No recent Level II radar data available")
+            l2_file = None  # Proceed with Level III data only
+        if not l3_data or not l3_data.get('success', False):
+            logger.warning("No recent Level III radar data available or fetch failed")
+            l3_data = {'data': []}  # Use empty list for Level III data
+
+        # Combine data (will handle empty/missing data gracefully)
+        tornadoes = combine_tornado_data(l2_file, l3_data.get('data', []))
         response = jsonify(tornadoes)
         response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
         tornadoes_cache['tornadoes'] = {'content': response.get_data(), 'status': 200}
@@ -90,7 +91,7 @@ def proxy_weather():
         logger.error(f"Error fetching Xweather data: {str(e)}", exc_info=True)
         response = jsonify({"error": f"Failed to fetch weather data: {str(e)}"})
         response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
-        weather_cache['weather'] = {'content': response.get_data(), 'status': 502}
+        weather_cache['weather'] = {'content': response.get_data(), 'status': 500}
         return response, 502
     except Exception as e:
         logger.error(f"Error in /proxy-weather endpoint: {str(e)}", exc_info=True)
