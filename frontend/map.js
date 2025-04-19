@@ -2,51 +2,7 @@ function initMap() {
     const map = new google.maps.Map(document.getElementById('map'), {
         center: { lat: 30.4383, lng: -84.2807 }, // Tallahassee, FL
         zoom: 9,
-        mapTypeId: 'roadmap',
-        styles: [
-            {
-                featureType: 'all',
-                elementType: 'geometry',
-                stylers: [
-                    { hue: '#FF6F61' }, // Vibrant coral for land
-                    { saturation: 50 },
-                    { lightness: 10 }
-                ]
-            },
-            {
-                featureType: 'road',
-                elementType: 'geometry',
-                stylers: [
-                    { color: '#2E2E2E' }, // Dark gray roads for contrast
-                    { weight: 1 }
-                ]
-            },
-            {
-                featureType: 'water',
-                elementType: 'geometry',
-                stylers: [
-                    { color: '#87CEEB' } // Sky blue water
-                ]
-            },
-            {
-                featureType: 'poi',
-                elementType: 'geometry',
-                stylers: [
-                    { color: '#FFD700' }, // Golden yellow for POIs
-                    { lightness: 20 }
-                ]
-            },
-            {
-                featureType: 'all',
-                elementType: 'labels.text',
-                stylers: [
-                    { fontFamily: 'Helvetica Now, sans-serif' },
-                    { weight: 'bold' },
-                    { color: '#FFFFFF' },
-                    { textTransform: 'uppercase' }
-                ]
-            }
-        ]
+        mapTypeId: 'roadmap'
     });
 
     // Debounce function to limit rapid API calls
@@ -93,7 +49,7 @@ function initMap() {
                         const infoWindow = new google.maps.InfoWindow({
                             content: `
                                 <div style="
-                                    font-family: 'Helvetica Now', sans-serif;
+                                    font-family: 'Helvetica Now', 'Roboto', 'Arial', sans-serif;
                                     background: linear-gradient(45deg, #FFD700, #FFA500); /* Glass-like gradient */
                                     color: #2E2E2E;
                                     padding: 10px;
@@ -144,11 +100,12 @@ function initMap() {
                 weatherDiv.style.color = '#FFFFFF';
                 weatherDiv.style.padding = '15px';
                 weatherDiv.style.borderRadius = '15px';
-                weatherDiv.style.fontFamily = 'Helvetica Now, sans-serif';
+                weatherDiv.style.fontFamily = 'Helvetica Now, Roboto, Arial, sans-serif';
                 weatherDiv.style.fontWeight = 'bold';
                 weatherDiv.style.textTransform = 'uppercase';
                 weatherDiv.style.letterSpacing = '2px';
                 weatherDiv.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+                weatherDiv.style.zIndex = '1000'; // Ensure it appears above the map
                 weatherDiv.innerHTML = `
                     <div>TEMPERATURE: ${temperature}</div>
                     <div>CONDITION: ${condition}</div>
@@ -205,7 +162,7 @@ function initMap() {
             const infoWindow = new google.maps.InfoWindow({
                 content: `
                     <div style="
-                        font-family: 'Helvetica Now', sans-serif;
+                        font-family: 'Helvetica Now', 'Roboto', 'Arial', sans-serif;
                         background: linear-gradient(45deg, #FFD700, #FFA500); /* Glass-like gradient */
                         color: #2E2E2E;
                         padding: 10px;
@@ -248,7 +205,7 @@ function initMap() {
 
         const sliderLabel = document.createElement('div');
         sliderLabel.textContent = 'RADAR TIME';
-        sliderLabel.style.fontFamily = 'Helvetica Now, sans-serif';
+        sliderLabel.style.fontFamily = 'Helvetica Now, Roboto, Arial, sans-serif';
         sliderLabel.style.fontWeight = 'bold';
         sliderLabel.style.color = '#FFFFFF';
         sliderLabel.style.textTransform = 'uppercase';
@@ -287,7 +244,7 @@ function initMap() {
         title.style.position = 'absolute';
         title.style.top = '20px';
         title.style.left = '20px';
-        title.style.fontFamily = 'Helvetica Now, sans-serif';
+        title.style.fontFamily = 'Helvetica Now, Roboto, Arial, sans-serif';
         title.style.fontWeight = 'bold';
         title.style.fontSize = '24px';
         title.style.color = '#FFD700'; // Golden yellow for vibrancy
