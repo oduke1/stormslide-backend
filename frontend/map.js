@@ -212,6 +212,23 @@ function initMap() {
         sliderLabel.style.letterSpacing = '2px';
         sliderLabel.style.marginBottom = '10px';
 
+        // Check if radarData has any storm cells
+        const hasStormCells = radarData.some(data => data.stormcells && data.stormcells.length > 0);
+
+        if (!hasStormCells) {
+            const noDataMessage = document.createElement('div');
+            noDataMessage.textContent = 'NO STORM CELLS DETECTED';
+            noDataMessage.style.fontFamily = 'Roboto, Arial, sans-serif';
+            noDataMessage.style.fontWeight = 'bold';
+            noDataMessage.style.color = '#FFFFFF';
+            noDataMessage.style.textTransform = 'uppercase';
+            noDataMessage.style.letterSpacing = '2px';
+            sliderContainer.appendChild(sliderLabel);
+            sliderContainer.appendChild(noDataMessage);
+            document.body.appendChild(sliderContainer);
+            return;
+        }
+
         const slider = document.createElement('input');
         slider.type = 'range';
         slider.min = '0';
@@ -220,9 +237,7 @@ function initMap() {
         slider.style.width = '80%';
         slider.style.accentColor = '#FF6F61'; // Vibrant coral for the slider
         slider.style.background = '#2E2E2E'; // Dark gray track
-        slider.style.height = '8px';
-        slider.style.borderRadius = '5px';
-        slider.style.cursor = 'pointer';
+        sliderlegate = 'pointer';
 
         slider.oninput = (e) => {
             radarTimeIndex = parseInt(e.target.value);
