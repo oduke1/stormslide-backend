@@ -30,7 +30,11 @@ def check_rate_limit(response):
 
     if remaining_minute <= 5:
         logger.warning("Nearing minutely rate limit, delaying request")
-        time.sleep(5)
+        time.sleep(10)  # Increased delay to 10 seconds to avoid rate limits
+
+@app.route('/')
+def serve_index():
+    return app.send_static_file('index.html')
 
 @app.route('/tornadoes')
 def get_tornadoes():
@@ -43,8 +47,13 @@ def get_tornadoes():
             flask_response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
             return flask_response
 
+        logger.info("Fetching Level II data")
         l2_file = fetch_latest_level2()
+        logger.info(f"Level II data fetched: {l2_file}")
+
+        logger.info("Fetching Level III data")
         l3_data = fetch_level3_tvs()
+        logger.info(f"Level III data fetched: {l3_data}")
 
         # Handle failure of either Level II or Level III data fetch
         if not l2_file:
@@ -55,7 +64,10 @@ def get_tornadoes():
             l3_data = {'data': []}  # Use empty list for Level III data
 
         # Combine data (will handle empty/missing data gracefully)
+        logger.info("Combining Level II and Level III data")
         tornadoes = combine_tornado_data(l2_file, l3_data.get('data', []))
+        logger.info(f"Combined tornadoes: {tornadoes}")
+
         response = jsonify(tornadoes)
         response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
         tornadoes_cache['tornadoes'] = {'content': response.get_data(), 'status': 200}
@@ -81,9 +93,11 @@ def proxy_weather():
         client_id = 'HIXM4oS25l3yBhWDFrM4k'
         client_secret = '2qRfyRrVeDB22pw0Z2mCbAiJrHS0G0FLVi9wLR3Z'
         url = f'https://api.aerisapi.com/conditions/tallahassee,fl?limit=1&client_id={client_id}&client_secret={client_secret}'
+        logger.info(f"Fetching weather data from: {url}")
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         check_rate_limit(response)
+        logger.info(f"Weather response: {response.status_code}")
         flask_response = Response(response.content, status=response.status_code, mimetype='application/json')
         flask_response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
         weather_cache['weather'] = {'content': response.content, 'status': response.status_code}
@@ -115,11 +129,12 @@ def get_radar():
         client_id = 'HIXM4oS25l3yBhWDFrM4k'
         client_secret = '2qRfyRrVeDB22pw0Z2mCbAiJrHS0G0FLVi9wLR3Z'
         location = 'KTLH'  # Same radar site as Level III data
-        time_steps = list(range(0, -61, -5))  # Last hour in 5-min intervals: 0, -5, -10, ..., -60
+        time_steps = list(range(0, -61, -10))  # Last hour in 10-min intervals: 0, -10, -20, ..., -60 (6 steps)
         radar_data = []
 
         for minutes in time_steps:
             url = f'https://api.aerisapi.com/stormcells/closest?p={location}&from={minutes}min&limit=10&client_id={client_id}&client_secret={client_secret}'
+            logger.info(f"Fetching radar data for {minutes} minutes ago from: {url}")
             response = requests.get(url, timeout=10)
             response.raise_for_status()
             check_rate_limit(response)
