@@ -49,7 +49,7 @@ function initMap() {
                         const infoWindow = new google.maps.InfoWindow({
                             content: `
                                 <div style="
-                                    font-family: 'Helvetica Now', 'Roboto', 'Arial', sans-serif;
+                                    font-family: 'Roboto', 'Arial', sans-serif;
                                     background: linear-gradient(45deg, #FFD700, #FFA500); /* Glass-like gradient */
                                     color: #2E2E2E;
                                     padding: 10px;
@@ -100,7 +100,7 @@ function initMap() {
                 weatherDiv.style.color = '#FFFFFF';
                 weatherDiv.style.padding = '15px';
                 weatherDiv.style.borderRadius = '15px';
-                weatherDiv.style.fontFamily = 'Helvetica Now, Roboto, Arial, sans-serif';
+                weatherDiv.style.fontFamily = 'Roboto, Arial, sans-serif';
                 weatherDiv.style.fontWeight = 'bold';
                 weatherDiv.style.textTransform = 'uppercase';
                 weatherDiv.style.letterSpacing = '2px';
@@ -162,7 +162,7 @@ function initMap() {
             const infoWindow = new google.maps.InfoWindow({
                 content: `
                     <div style="
-                        font-family: 'Helvetica Now', 'Roboto', 'Arial', sans-serif;
+                        font-family: 'Roboto', 'Arial', sans-serif;
                         background: linear-gradient(45deg, #FFD700, #FFA500); /* Glass-like gradient */
                         color: #2E2E2E;
                         padding: 10px;
@@ -205,7 +205,7 @@ function initMap() {
 
         const sliderLabel = document.createElement('div');
         sliderLabel.textContent = 'RADAR TIME';
-        sliderLabel.style.fontFamily = 'Helvetica Now, Roboto, Arial, sans-serif';
+        sliderLabel.style.fontFamily = 'Roboto, Arial, sans-serif';
         sliderLabel.style.fontWeight = 'bold';
         sliderLabel.style.color = '#FFFFFF';
         sliderLabel.style.textTransform = 'uppercase';
@@ -244,7 +244,7 @@ function initMap() {
         title.style.position = 'absolute';
         title.style.top = '20px';
         title.style.left = '20px';
-        title.style.fontFamily = 'Helvetica Now, Roboto, Arial, sans-serif';
+        title.style.fontFamily = 'Roboto, Arial, sans-serif';
         title.style.fontWeight = 'bold';
         title.style.fontSize = '24px';
         title.style.color = '#FFD700'; // Golden yellow for vibrancy
