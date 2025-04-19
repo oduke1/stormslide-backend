@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, Response
+from flask import Flask, jsonify, Response, request
 from fetch_level2 import fetch_latest_level2
 from fetch_level3 import fetch_level3_tvs
 from combine_data import combine_tornado_data
@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 # Cache for 10 minutes (600 seconds)
 weather_cache = TTLCache(maxsize=1, ttl=600)
 tornadoes_cache = TTLCache(maxsize=1, ttl=600)
+radar_cache = TTLCache(maxsize=1, ttl=600)
 
 def check_rate_limit(response):
     """Check Xweather rate-limit headers and delay if necessary."""
@@ -98,6 +99,67 @@ def proxy_weather():
         response = jsonify({"error": f"Server error: {str(e)}"})
         response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
         weather_cache['weather'] = {'content': response.get_data(), 'status': 500}
+        return response, 500
+
+@app.route('/radar')
+def get_radar():
+    try:
+        # Check if data is in cache
+        if 'radar' in radar_cache:
+            logger.info("Serving /radar from cache")
+            response_data = radar_cache['radar']
+            flask_response = Response(response_data['content'], status=response_data['status'], mimetype='application/json')
+            flask_response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
+            return flask_response
+
+        client_id = 'HIXM4oS25l3yBhWDFrM4k'
+        client_secret = '2qRfyRrVeDB22pw0Z2mCbAiJrHS0G0FLVi9wLR3Z'
+        location = 'KTLH'  # Same radar site as Level III data
+        time_steps = list(range(0, -61, -5))  # Last hour in 5-min intervals: 0, -5, -10, ..., -60
+        radar_data = []
+
+        for minutes in time_steps:
+            url = f'https://api.aerisapi.com/stormcells/closest?p={location}&from={minutes}min&limit=10&client_id={client_id}&client_secret={client_secret}'
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            check_rate_limit(response)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('success', False):
+                    stormcells = data.get('response', [])
+                    logger.info(f"Fetched {len(stormcells)} storm cells for time {minutes} minutes ago")
+                    radar_data.append({
+                        'time': minutes,
+                        'stormcells': stormcells
+                    })
+                else:
+                    logger.warning(f"No storm cells found for time {minutes} minutes ago")
+                    radar_data.append({
+                        'time': minutes,
+                        'stormcells': []
+                    })
+            else:
+                logger.warning(f"Failed to fetch storm cells for time {minutes} minutes ago: HTTP {response.status_code}")
+                radar_data.append({
+                    'time': minutes,
+                    'stormcells': []
+                })
+
+        response = jsonify(radar_data)
+        response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
+        radar_cache['radar'] = {'content': response.get_data(), 'status': 200}
+        return response
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching radar data: {str(e)}", exc_info=True)
+        response = jsonify({"error": f"Failed to fetch radar data: {str(e)}"})
+        response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
+        radar_cache['radar'] = {'content': response.get_data(), 'status': 500}
+        return response, 502
+    except Exception as e:
+        logger.error(f"Error in /radar endpoint: {str(e)}", exc_info=True)
+        response = jsonify({"error": f"Server error: {str(e)}"})
+        response.headers.add('Access-Control-Allow-Origin', 'https://stormslide.net')
+        radar_cache['radar'] = {'content': response.get_data(), 'status': 500}
         return response, 500
 
 if __name__ == '__main__':
